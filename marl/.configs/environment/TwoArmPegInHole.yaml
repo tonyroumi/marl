@@ -1,0 +1,47 @@
+type: "cpu"
+id: "TwoArmPegInHole"
+num_envs: 1
+
+
+env_kwargs:
+  # Robot configuration
+  robots: ["Panda", "Panda"]                   # Must be either 2 robots or 1 bimanual robot
+
+  # Environment configuration
+  env_configuration: "opposed"                 # How to position robots: 'parallel' (side by side) or 'opposed' (across from each other)
+
+  # Controller configuration
+  controller_configs:
+    type: "composite_controller"               # Controller for first robot 
+    controller: "BASIC"
+
+
+  use_camera_obs: [true, true]                 # Whether to include camera observations for each robot (includes all cameras)
+  use_object_obs: true                         # Whether to include object information in the observation
+
+  # Reward settings
+  reward_scale: 1.0                            # Scales the normalized reward function
+  reward_shaping: true                         # Whether to use dense or sparse rewards
+
+  # Task-specific parameters
+  peg_radius: [0.015, 0.03]                    # Low and high limits of the uniformly sampled radius of the peg
+  peg_length: 0.13                             # Length of the peg
+
+  # Rendering settings
+  has_renderer: true                           # Whether to render in a viewer
+  has_offscreen_renderer: true                 # Whether to use off-screen rendering
+  render_camera: "frontview"                   # Camera to render from (null for default angle) Only applies if has_renderer is true
+
+  # Camera settings
+  camera_names: ["frontview", "birdview"]      # Can be 'frontview', 'birdview', 'agentview', 'sideview' \
+                                               #'robot0_robotview', 'robot0_eye_in_hand', 'robot1_robotview', 'robot1_eye_in_hand
+  camera_heights: 256                          # Height of camera frames
+  camera_widths: 256                           # Width of camera frames 
+  camera_depths: true                          # Whether to render RGB-D
+
+  # Simulation settings
+  control_freq: 20.0                           # Control frequency (Hz)
+  lite_physics: false                          # Whether to optimize for speed (may affect backward compatibility)
+  horizon: 200                                 # Episode length in timesteps
+  ignore_done: false                           # Whether to ignore termination conditions
+  hard_reset: false                            # Whether to reload model and sim upon reset

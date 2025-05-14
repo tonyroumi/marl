@@ -1,0 +1,52 @@
+type: "cpu"
+id: "TwoArmTransport"
+num_envs: 1
+
+env_kwargs:
+  # Robot configuration
+  robots: ["Panda", "Panda"]                   # Must be either 2 robots or 1 bimanual robot
+
+  # Environment configuration
+  env_configuration: "opposed"                 # How to position robots: 'parallel' (side by side) or 'opposed' (across from each other)
+
+  # Controller configuration
+  controller_configs:
+    type: "composite_controller"             # Controller for first robot 
+    controller: "BASIC"                      # Controller for second robot
+
+  # Gripper configuration
+  gripper_types: "default"                     # Use default grippers associated with the robots
+
+
+  # Table and bin configuration
+  tables_boundary: [1.2, 1.8, 0.8]             # x, y, and z dimensions of the table bounds
+  bin_size: [0.3, 0.3, 0.15]                   # x, y, z dimensions of bins
+
+  # Observation settings
+  use_camera_obs: true                         # Include camera observations
+  use_object_obs: true                         # Include object information in observation
+
+  # Reward settings
+  reward_scale: 1.0                            # Scales the normalized reward function
+  reward_shaping: true                         # Whether to use dense or sparse rewards
+
+  # Rendering settings
+  has_renderer: true                           # Whether to render in a viewer
+  has_offscreen_renderer: true                 # Whether to use off-screen rendering
+  render_camera: "frontview"                   # Camera to render from (null for default angle) Only applies if has_renderer is true
+  render_collision_mesh: false                 # Don't render collision meshes
+  render_visual_mesh: true                     # Render visual meshes
+
+  # Camera settings
+  camera_names: ["frontview", "birdview"]      # Can be 'frontview', 'birdview', 'agentview', 'sideview' \
+                                               #'robot0_robotview', 'robot0_eye_in_hand', 'robot1_robotview', 'robot1_eye_in_hand
+  camera_heights: 256                          # Height of camera frames
+  camera_widths: 256                           # Width of camera frames
+  camera_depths: true                          # Whether to render RGB-D
+
+  # Simulation settings
+  control_freq: 20.0                           # Control frequency (Hz)
+  lite_physics: false                          # Whether to optimize for speed
+  horizon: 300                                 # Episode length in timesteps
+  ignore_done: false                           # Whether to ignore termination conditions
+  hard_reset: false                            # Whether to reload model and sim upon reset

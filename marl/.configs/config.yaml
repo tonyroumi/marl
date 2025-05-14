@@ -1,0 +1,10 @@
+defaults:
+  - _self_
+  - policies: actor_critic
+  - environment: TwoArmTransport
+
+
+#Custom Hydra run directory
+hydra:
+  run:
+    dir: results/${hydra:runtime.choices.environment}/${hydra:runtime.choices.policies}/${now:%Y.%m.%d}
