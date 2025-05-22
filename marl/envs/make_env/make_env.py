@@ -1,7 +1,7 @@
 from typing import Callable
 
 import marl.envs.make_env._robosuite as _robosuite
-
+import marl.envs.make_env._gymnasium as _gymnasium
 
 def wrap_env(env, wrappers=[]):
     """ Wrap the environment with the given wrappers. """
@@ -29,6 +29,8 @@ def make_env(
 
     if _robosuite.is_robosuite_env(env_id):
         env = _robosuite.env_factory(env_id, env_kwargs)
+    elif _gymnasium.is_gymnasium_env(env_id):
+        env = _gymnasium.env_factory(env_id, env_kwargs)
     else:
         raise ValueError(f"Unknown environment type: {env_type}")
     

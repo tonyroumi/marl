@@ -32,8 +32,8 @@ class Policy(BasePolicy):
             **network_kwargs: Additional arguments for network construction
         ):
         """
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+        super().__init__()
+    
         self.component_id = component_id
         self.network_type = network_type
         self.network_class = network_class

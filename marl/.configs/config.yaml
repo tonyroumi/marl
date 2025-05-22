@@ -1,7 +1,18 @@
 defaults:
   - _self_
-  - policies: actor_critic
   - environment: TwoArmTransport
+  - policy: single_actor_critic
+  - agent: single_agent
+  - algorithm: ppo
+
+environment:
+  num_envs: 2
+
+experiment:
+  name: "single_agent_ppo"
+  seed: 42
+  total_timesteps: 1_000_000
+
 
 
 #Custom Hydra run directory

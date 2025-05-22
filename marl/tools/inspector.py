@@ -36,11 +36,12 @@ def inspect(cfg: DictConfig):
             print(f"{key}: {shape}")
         else:
             print(f"{key}: {type(value)}")
-    
-    
+    print("\n=== Action Space ===")
+    print(env.action_dim)
+
     print("\n=== Model Sizes ===")
 
-    policy = build_policy_from_config(cfg['policies'])
+    policy = build_policy_from_config(cfg['policy'])
     
    
     for name, component in policy.components.items():

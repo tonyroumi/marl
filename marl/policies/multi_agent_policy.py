@@ -1,6 +1,6 @@
 import torch
 from typing import Dict, Any, List, Optional
-from marl.policies import BasePolicy, Policy
+from marl.policies import Policy
 import os
 
 class MultiAgentPolicy(Policy):
@@ -25,6 +25,7 @@ class MultiAgentPolicy(Policy):
             components: Dictionary of components in the policy
             connections: Dictionary of connections between components
         """
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.components = components
         self.connections = connections

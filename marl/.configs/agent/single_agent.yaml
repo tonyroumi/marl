@@ -1,0 +1,16 @@
+agents: ["single_agent"]
+critics: ["single_agent"]
+
+actor_observations: [
+  robot0_proprio_state, #(43,)
+  robot1_proprio_state, #(43,)
+]
+
+private_observations: [
+  object-state #(41,)
+]
+
+critic_observations: [
+  robot0_proprio_state, #(43,)
+  robot1_proprio_state, #(43,)
+]
