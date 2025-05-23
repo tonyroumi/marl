@@ -1,4 +1,3 @@
-from marl.agents.base_agent import BaseAgent
 from marl.policies.base_policy import BasePolicy
 from marl.algorithms.base_algorithm import BaseAlgorithm
 from typing import Any, Dict
@@ -6,7 +5,7 @@ import torch
 import time
 from collections import deque
 
-class StandardAgent(BaseAgent):
+class StandardAgent:
   def __init__(
       self, 
       env: Any,
