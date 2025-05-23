@@ -1,30 +1,34 @@
 import torch
-from typing import Dict, Any, List, Optional
-from marl.policies import Policy
+from typing import Dict, Any, List, Optional, Union
+from marl.policies import BasePolicy
+from marl.policies.component import Component
 import os
 
-class MultiAgentPolicy(Policy):
+class MultiAgentPolicy(BasePolicy):
     """
-    Multi-agent policy that can be configured for various sharing patterns.
+    A composite multi-agent policy that orchestrates multiple interconnected components.
     
-    This class provides a uniform interface for different multi-agent policy configurations:
-    - Shared policy: All agents share the same policy
-    - Independent policies: Each agent has its own policy
-    - Mixed: Some agents share policies, others have independent ones
-    - Shared critic: Agents have independent actors but share a critic
+    This class manages a collection of neural network components (actors, critics, encoders) and their
+    data flow connections to create complex multi-agent systems. It supports:
+    - Individual agent architectures with different network types and roles
+    - Inter-component communication through configurable connections
+    - Selective agent processing for efficient inference
+
+    
+    Raises:
+        ValueError: If component dependencies form cycles during validation.
+        ValueError: If connection references non-existent components during validation.
+        ValueError: If attempting to get actions from components without actor networks.
+        ValueError: If attempting to evaluate components without critic networks.
+        ValueError: If specified agent_id not found in components during method calls.
+        ValueError: If source component outputs not available during execution.
+        ValueError: If required actions not provided for log probability calculations.
     """
     def __init__(
         self, 
-        components: Dict[str, Policy],
+        components: Dict[str, Component],
         connections: Dict[str, Dict[str, Any]],
         ):
-        """
-        Initialize multi-agent policy.
-        
-        Args:
-            components: Dictionary of components in the policy
-            connections: Dictionary of connections between components
-        """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.components = components
@@ -33,45 +37,43 @@ class MultiAgentPolicy(Policy):
         #Validate the policy structure
         self._validate_policy_structure()
     
-    def _validate_policy_structure(self):
-        """Validate the policy structure
-        
-        Raises:
-            ValueError: If component not found in components
-            ValueError: If source not found in component outputs
-        """
-                
-        # Validate connections
-        for target, sources in self.connections.items():
-            if target not in self.components:
-                raise ValueError(f"Connection target '{target}' not found in components")
-            for conn in sources:
-                for source_id in conn['source_id']:
-                    if source_id not in self.components:
-                        raise ValueError(f"Connection source '{source_id}' not found in components")
-
+    
     def act(
         self, 
-        obs: Dict[str, torch.Tensor], 
-        deterministic: bool = False
-        ) -> Dict[str, torch.Tensor]:
+        obs: Union[Dict[str, torch.Tensor], torch.Tensor], 
+        deterministic: bool = False,
+        agent_id: Optional[str] = None
+        ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
         """ Process observations through the policy components
         
         Args:
             obs: Dictionary mapping agent IDs to their observations
             deterministic: Whether to use deterministic actions
-        
-        Raises:
-            ValueError: If component not found in components
-            ValueError: If source not found in component outputs
+            agent_id: Optional specific agent ID to process. If None, processes all agents.
             
         Returns:
-            Dictionary mapping agent IDs to their actions
+            Specific agent actions or all agent actions dictionary mapping agent IDs to their actions
         """
+        # If agent_id is specified, validate it exists
+        if agent_id is not None:
+            if agent_id not in self.components:
+                raise ValueError(f"Agent ID {agent_id} not found in components")
+        
         component_outputs = {}
-        component_info = {}
         execution_order = self._determine_execution_order()
-        for component_id in execution_order:
+        
+        # Filter execution order if specific agent_id is requested
+        if agent_id is not None:
+            # Only process the specified agent and its dependencies
+            filtered_order = self._get_agent_dependencies(agent_id, execution_order)
+        else:
+            filtered_order = execution_order
+        
+        for component_id in filtered_order:
+            # Skip if agent_id is specified and this isn't the target agent or its dependency
+            if agent_id is not None and not self._is_required_for_agent(component_id, agent_id):
+                continue
+                
             if component_id not in self.components:
                 raise ValueError(f"Component {component_id} not found in components")
             
@@ -84,8 +86,6 @@ class MultiAgentPolicy(Policy):
                     for source_id in source_ids:
                         if source_id not in component_outputs:
                             raise ValueError(f"Source {source_id} not found in component outputs")
-                        if source_id not in component_outputs:
-                            raise ValueError(f"Source {source_id} not found in component outputs")
                         target_inputs.append(component_outputs[source_id])
                 target_inputs = torch.cat(target_inputs, dim=concat_dim) if len(target_inputs) > 1 else target_inputs[0]
                 if component_id in obs:
@@ -93,36 +93,235 @@ class MultiAgentPolicy(Policy):
                 component_outputs[component_id] = component.forward(target_inputs)
             else:
                 if component.network_class in ["actor", "actor_critic"]:
-                    component_outputs[component_id], component_info[component_id] = component.act(obs[component_id], deterministic=deterministic)
+                    return component.act(obs, deterministic=deterministic)
                 elif component.network_class == "encoder":
-                    component_outputs[component_id] = component.forward(obs[component_id])
-        return component_outputs, component_info
+                    component_outputs[component_id] = component.forward(obs)
+        
+        return component_outputs
     
     def evaluate(
         self, 
-        obs: Dict[str, torch.Tensor], 
-        ) -> Dict[str, torch.Tensor]:
+        obs: Union[Dict[str, torch.Tensor], torch.Tensor], 
+        agent_id: Optional[str] = None
+        ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
         """
-        Get value estimates for all critc-based components based on their observations.
+        Get value estimates for critic-based components based on their observations.
         
         Args:
             obs: Dictionary mapping agent IDs to their observations
+            agent_id: Optional specific agent ID to evaluate. If None, evaluates all agents.
             
         Returns:
-            Dictionary mapping agent IDs to their value estimates
+            Specific agent value estimates or all agent value estimates dictionary 
+            mapping agent IDs to their value estimates
         """
         values_dict = {}
-
-        for agent_id, agent_obs in obs.items():
-            component = self.components[agent_id]
+        
+        if agent_id is not None:
+            # Process only the specified agent and its dependencies
             if agent_id not in self.components:
                 raise ValueError(f"Agent {agent_id} not found in components")
-            if component.network_class in ["actor_critic", "critic"]:
-                values = component.evaluate(agent_obs)
-                values_dict[agent_id] = values
+            
+            # Get execution order and dependencies for the specific agent
+            execution_order = self._determine_execution_order()
+            agent_dependencies = self._get_agent_dependencies(agent_id, execution_order)
+            
+            # Process components in dependency order
+            for component_id in execution_order:
+                if self._is_required_for_agent(component_id, agent_id):
+                    component = self.components[component_id]
+                    
+                    # Only evaluate critic-based components
+                    if component.network_class in ["actor_critic", "critic"]:
+                        # Use the observation for the target agent
+                        if component_id == agent_id:
+                            return component.evaluate(obs)
+                        elif component_id in obs:
+                            return component.evaluate(obs[component_id])
+        else:
+            # Original behavior: process all agents
+            for agent_id, agent_obs in obs.items():
+                if agent_id not in self.components:
+                    raise ValueError(f"Agent {agent_id} not found in components")
+                
+                component = self.components[agent_id]
+                if component.network_class in ["actor_critic", "critic"]:
+                    values = component.evaluate(agent_obs)
+                    values_dict[agent_id] = values
+        
         if len(values_dict) == 0:
-            print(f"No values found for for any components")
+            target_info = f" for agent {agent_id}" if agent_id else " for any components"
+            print(f"No values found{target_info}")
+            
         return values_dict
+
+    def get_actions_log_prob(
+        self,
+        actions: Union[Dict[str, torch.Tensor], torch.Tensor],
+        agent_id: Optional[str] = None
+    ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        """Get the log probability of actions for all actor/actor-critic networks
+        
+        Args:
+            actions: Dictionary mapping component IDs to their actions
+            agent_id: Optional specific agent ID to get actions log probability. If None, gets all agents.
+            
+        Returns:
+            Specific agent action log probabilities or all agent action log probabilities dictionary 
+            mapping component IDs to their action log probabilities
+            
+        """
+        log_probs = {}
+        if agent_id is not None:
+            if agent_id not in self.components:
+                raise ValueError(f"Agent ID {agent_id} not found in components")
+            component = self.components[agent_id]
+            if component.network_class in ["actor", "actor_critic"]:
+                return component.get_actions_log_prob(actions)
+        else:
+            for component_id, component in self.components.items():
+                if component.network_class in ["actor", "actor_critic"]:
+                    if component_id not in actions:
+                        raise ValueError(f"Actions for component {component_id} not found in actions dictionary")
+                    log_probs[component_id] = component.get_actions_log_prob(actions[component_id])
+                
+        return log_probs
+    
+    def get_action_mean(
+        self,
+        agent_id: Optional[str] = None
+    ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        """Get the mean of the action distribution for all actor/actor-critic networks
+        
+        Args:
+            agent_id: Optional specific agent ID to get action mean. If None, gets all agents.
+            
+        Returns:
+            Specific agent action means or all agent action means dictionary 
+            mapping component IDs to their action means
+        """
+        means = {}
+        if agent_id is not None:
+            if agent_id not in self.components:
+                raise ValueError(f"Agent ID {agent_id} not found in components")
+            component = self.components[agent_id]
+            if component.network_class in ["actor", "actor_critic"]:
+                return component.get_action_mean()
+        else:
+            for component_id, component in self.components.items():
+                if component.network_class in ["actor", "actor_critic"]:
+                    means[component_id] = component.get_action_mean()
+            return means
+
+    def get_action_std(
+        self,
+        agent_id: Optional[str] = None
+    ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        """Get the standard deviation of the action distribution for all actor/actor-critic networks
+        
+        Args:
+            agent_id: Optional specific agent ID to get action std. If None, gets all agents.
+            
+        Returns:
+            Specific agent action standard deviations or all agent action standard deviations dictionary 
+            mapping component IDs to their action standard deviations
+        """
+        stds = {}
+        if agent_id is not None:
+            if agent_id not in self.components:
+                raise ValueError(f"Agent ID {agent_id} not found in components")
+            component = self.components[agent_id]
+            if component.network_class in ["actor", "actor_critic"]:
+                return component.get_action_std()
+        else:
+            for component_id, component in self.components.items():
+                if component.network_class in ["actor", "actor_critic"]:
+                    stds[component_id] = component.get_action_std()
+            return stds
+    
+    def get_entropy(
+        self,
+        agent_id: Optional[str] = None
+    ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        """Get the entropy of the action distribution for all actor/actor-critic networks
+        
+        Args:
+            agent_id: Optional specific agent ID to get entropy. If None, gets all agents.
+            
+        Returns:
+            Specific agent entropy or all agent entropy dictionary 
+            mapping component IDs to their entropy
+        """
+        entropies = {}
+        if agent_id is not None:
+            if agent_id not in self.components:
+                raise ValueError(f"Agent ID {agent_id} not found in components")
+            component = self.components[agent_id]
+            if component.network_class in ["actor", "actor_critic"]:
+                return component.get_entropy()
+        else:
+            for component_id, component in self.components.items():
+                if component.network_class in ["actor", "actor_critic"]:
+                    entropies[component_id] = component.get_entropy()
+            return entropies
+
+                        
+    def parameters(
+        self, 
+        agent_id: Optional[str] = None
+        ) -> Union[Dict[str, Dict[str, List[torch.Tensor]]], Dict[str, List[torch.Tensor]]]:
+        """Get all parameters of the policy.
+        
+        Args:
+            agent_id: Optional specific agent ID to get parameters. If None, gets all agents.
+            
+        Returns:
+            Specific agent parameters or all agent parameters dictionary 
+            mapping component IDs to their parameters
+        """
+        params = {}
+        if agent_id is not None:
+            if agent_id not in self.components:
+                raise ValueError(f"Agent ID {agent_id} not found in components")
+            component = self.components[agent_id]
+            return component.parameters()
+        else:
+            for component_id, component in self.components.items():
+                params[component_id] = component.parameters()
+        return params
+    
+    def save(self, path: str):
+        """Save all policies and critics to disk."""
+        os.makedirs(path, exist_ok=True)
+        
+        for component_id, component in self.components.items():
+            component_path = os.path.join(path, f"{component_id}.pt")
+            component.save(component_path)
+        print(f"Saved all components to {path}")
+
+    def load(self, path: str, component_id: Optional[str] = None):
+        """
+        Load a specific component from disk.
+        
+        Args:
+            path: Path to the directory containing saved components
+            component_id: ID of the specific component to load. If None, loads all components.
+        """
+        if component_id is not None:
+            # Load only the specified component
+            if component_id in self.components:
+                component = self.components[component_id]
+                component_path = os.path.join(path, f"{component_id}.pt")
+                component.load(component_path)
+                print(f"Loaded component '{component_id}' from {component_path}")
+            else:
+                raise ValueError(f"Component '{component_id}' not found in self.components")
+        else:
+            # Existing functionality to load all components (with bug fix)
+            for comp_id, component in self.components.items():
+                component_path = os.path.join(path, f"{comp_id}.pt")
+                component.load(component_path)
+            print(f"Loaded all components from {path}")
 
     def _determine_execution_order(self):
         """Determine component execution order based on dependencies
@@ -161,43 +360,50 @@ class MultiAgentPolicy(Policy):
                 
         # Reverse to get correct order
         return list((order))
-                        
-    def parameters(self) -> Dict[str, Dict[str, List[torch.Tensor]]]:
-        """Get all parameters of the policy."""
-        params = {}
-        for component_id, component in self.components.items():
-            params[component_id] = component.parameters()
-        return params
     
-    def save(self, path: str):
-        """Save all policies and critics to disk."""
-        os.makedirs(path, exist_ok=True)
+    def _validate_policy_structure(self):
+        """Validate the policy structure
         
-        for component_id, component in self.components.items():
-            component_path = os.path.join(path, f"{component_id}.pt")
-            component.save(component_path)
-        print(f"Saved all components to {path}")
+        Raises:
+            ValueError: If component not found in components
+            ValueError: If source not found in component outputs
+        """
+                
+        # Validate connections
+        for target, sources in self.connections.items():
+            if target not in self.components:
+                raise ValueError(f"Connection target '{target}' not found in components")
+            for conn in sources:
+                for source_id in conn['source_id']:
+                    if source_id not in self.components:
+                        raise ValueError(f"Connection source '{source_id}' not found in components")
 
-    def load(self, path: str, component_id: Optional[str] = None):
-        """
-        Load a specific component from disk.
+    def _get_agent_dependencies(self, agent_id: str, execution_order: List[str]) -> List[str]:
+        """Get the execution order including dependencies for a specific agent"""
+        dependencies = set()
+        to_process = [agent_id]
         
-        Args:
-            path: Path to the directory containing saved components
-            component_id: ID of the specific component to load. If None, loads all components.
-        """
-        if component_id is not None:
-            # Load only the specified component
-            if component_id in self.components:
-                component = self.components[component_id]
-                component_path = os.path.join(path, f"{component_id}.pt")
-                component.load(component_path)
-                print(f"Loaded component '{component_id}' from {component_path}")
-            else:
-                raise ValueError(f"Component '{component_id}' not found in self.components")
-        else:
-            # Existing functionality to load all components (with bug fix)
-            for comp_id, component in self.components.items():
-                component_path = os.path.join(path, f"{comp_id}.pt")
-                component.load(component_path)
-            print(f"Loaded all components from {path}")
+        while to_process:
+            current = to_process.pop(0)
+            if current in dependencies:
+                continue
+            dependencies.add(current)
+            
+            # Find components that this component depends on
+            if current in self.connections:
+                for conn in self.connections[current]:
+                    for source_id in conn['source_id']:
+                        if source_id not in dependencies:
+                            to_process.append(source_id)
+        
+        # Return dependencies in original execution order
+        return [comp_id for comp_id in execution_order if comp_id in dependencies]
+    
+    def _is_required_for_agent(self, component_id: str, target_agent_id: str) -> bool:
+        """Check if a component is required for processing the target agent"""
+        if component_id == target_agent_id:
+            return True
+        
+        # Check if this component is a dependency of the target agent
+        dependencies = self._get_agent_dependencies(target_agent_id, list(self.components.keys()))
+        return component_id in dependencies

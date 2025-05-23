@@ -1,6 +1,5 @@
 from robosuite.wrappers.wrapper import Wrapper
 import imageio
-import torch
 
 class EpisodeStatsWrapper(Wrapper):
     """
@@ -22,21 +21,6 @@ class EpisodeStatsWrapper(Wrapper):
         info["eps_len"] = self.eps_len
         return observation, reward, done, info
 
-class TorchObsWrapper(Wrapper):
-    def reset(self):
-        obs = super().reset()
-        return self._to_tensor(obs)
-    
-    def step(self, action):
-        obs, reward, done, info = super().step(action)
-        return self._to_tensor(obs), reward, done, info
-    
-    def _get_observations(self):
-        obs = self.env._get_observations()
-        return self._to_tensor(obs)
-    
-    def _to_tensor(self, obs):
-        return {key: torch.from_numpy(obs[key]).float() for key in obs}
 
 class RecordVideoWrapper(Wrapper):
     """

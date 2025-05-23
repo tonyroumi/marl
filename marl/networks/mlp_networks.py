@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple, Iterator
+from typing import List, Dict, Any, Tuple, Iterator, Union
 
 import torch.nn as nn
 import torch
@@ -85,22 +85,15 @@ class MLPActorNetwork(BaseActorNetwork):
             deterministic: If True, return mean action instead of sampling
 
         Returns:
-            Tuple containing:
-                - actions: The selected actions
-                - info: Dictionary with additional information (log_prob, mean, std, entropy)
+            actions: The selected actions
         """
-        info = {}
         self.update_distribution(obs)
         if deterministic:
             action = self.distribution.mean
         else:
             action = self.distribution.sample()
-        info["log_prob"] = self.get_actions_log_prob(action)
-        info["action_mean"] = self.action_mean
-        info["action_std"] = self.action_std
-        info["entropy"] = self.entropy
 
-        return action, info
+        return action
     
     def get_actions_log_prob(self, actions: torch.Tensor) -> torch.Tensor:
         """
@@ -196,7 +189,6 @@ class MLPCriticNetwork(BaseCriticNetwork):
         
         Args:
             obs: Agent observations
-            actions: Actions (unused for V-function critic)
             
         Returns:
             Dictionary containing value estimates
@@ -313,9 +305,36 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         """
         return self.critic.evaluate(obs)
     
-    def parameters(self) -> Dict[str, Iterator[Parameter]]:
+    def get_actions_log_prob(self, actions: torch.Tensor) -> torch.Tensor:
+        """
+        Get the log probability of the actions.
+        """
+        return self.actor.get_actions_log_prob(actions)
+    
+    def get_action_mean(self) -> torch.Tensor:
+        """
+        Get the mean of the action distribution.
+        """
+        return self.actor.action_mean
+    
+    def get_action_std(self) -> torch.Tensor:
+        """
+        Get the standard deviation of the action distribution.
+        """
+        return self.actor.action_std
+    
+    def get_entropy(self) -> torch.Tensor:
+        """
+        Get the entropy of the action distribution.
+        """
+        return self.actor.entropy
+    
+    def parameters(self, split: bool = False) -> Union[Dict[str, Iterator[Parameter]], Iterator[Parameter]]:
         """Parameters of the network."""
-        return {"actor": self.actor.parameters(), "critic": self.critic.parameters()}
+        if split:
+            return {"actor": self.actor.parameters(), "critic": self.critic.parameters()}
+        
+        return iter(list(self.actor.parameters()) + list(self.critic.parameters()))
         
 class MLPEncoderNetwork(BaseNetwork):
     """MLP-based Encoder Network."""

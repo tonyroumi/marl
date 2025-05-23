@@ -8,10 +8,7 @@ class BasePolicy(ABC):
     Abstract base class for all policies.
     This class provides the interface that all policies must implement.
     """
-    def __init__(self):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    @abstractmethod
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         """ 
         Perform a forward pass through the network.

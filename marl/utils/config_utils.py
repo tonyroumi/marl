@@ -1,9 +1,9 @@
 from marl.policies import MultiAgentPolicyBuilder
 from marl.envs.make_env.make_env import make_env
 from marl.utils.utils import resolve_controller
-from marl.agents.standard_agent import StandardAgent
+from marl.agents.basic_agent import BasicAgent
 from marl.algorithms.ppo import PPO
-from marl.envs.wrappers.common import TorchObsWrapper
+from marl.envs.wrappers._robosuite import TorchObsWrapper
 from typing import Dict, Any
 
 def build_env_from_config(config):
@@ -51,7 +51,7 @@ def build_agent_from_config(config):
     normalize_observations = config["agent"]["kwargs"]["normalize_observations"]
     preprocess_observations = config["agent"]["kwargs"]["preprocess_observations"]
    
-    return env, StandardAgent(env,policy, algorithm, actor_obs_keys, critic_obs_keys, normalize_observations, preprocess_observations)
+    return env, BasicAgent(env,policy, algorithm, actor_obs_keys, critic_obs_keys, normalize_observations, preprocess_observations)
 
 
 def parse_agent_configs(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:

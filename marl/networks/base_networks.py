@@ -12,7 +12,7 @@ class BaseNetwork(nn.Module, ABC):
         """Forward pass through the network."""
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def init_weights(self, init_method: str = "orthogonal", gain: float = 1.0):
+    def init_weights(self, **kwargs: Any):
         """Initialize network weights."""
         raise NotImplementedError("Subclasses must implement this method.")
     
@@ -38,7 +38,7 @@ class BaseActorNetwork(BaseNetwork):
         self, 
         obs: torch.Tensor, 
         **kwargs: Any
-        ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        ) -> torch.Tensor:
         """
         Compute actions from observations.
         
@@ -48,7 +48,6 @@ class BaseActorNetwork(BaseNetwork):
             
         Returns:
             actions: Tensor of actions
-            info: Additional information (e.g., log probabilities)
         """
         pass
 
@@ -88,9 +87,7 @@ class BaseActorCriticNetwork(BaseNetwork):
             **kwargs: Any (e.g. deterministic)
             
         Returns:
-            Tuple containing:
-                - actions: Tensor of actions
-                - info: Dictionary with additional information (e.g., log probabilities)
+            actions: Tensor of actions
         """
         pass
     
@@ -103,8 +100,7 @@ class BaseActorCriticNetwork(BaseNetwork):
             obs: Tensor of observations
             
         Returns:
-            Tuple containing:
-                - values: Tensor of estimated values
+            values: Tensor of estimated values
         """
         pass
 
@@ -113,7 +109,7 @@ class BaseActorCriticNetwork(BaseNetwork):
         self,
         obs: torch.Tensor,
         **kwargs: Any
-        ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Compute actions and values from observations.
         
@@ -121,10 +117,9 @@ class BaseActorCriticNetwork(BaseNetwork):
             obs: Tensor of observations
             
         Returns:
-            Tuple containing:
+            Dictionary containing:
                 - actions: Tensor of actions
                 - values: Tensor of estimated values
-                - info: Dictionary with additional information (e.g., log probabilities)
         """
         pass
 

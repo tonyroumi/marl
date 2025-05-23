@@ -1,11 +1,9 @@
-
-from marl.storage.base_buffer import BaseBuffer
 from dataclasses import dataclass
 import torch
 
 @dataclass
 class Transition:
-  observations: torch.Tensor = None
+  actor_observations: torch.Tensor = None
   critic_observations: torch.Tensor = None
   actions: torch.Tensor = None
   rewards: torch.Tensor = None
@@ -15,7 +13,7 @@ class Transition:
   action_mean: torch.Tensor = None
   action_sigma: torch.Tensor = None
   
-class PPOBuffer(BaseBuffer):
+class RolloutStorage:
   def __init__(
       self,
       num_envs: int,
@@ -25,7 +23,6 @@ class PPOBuffer(BaseBuffer):
       action_dim: int,
       device: torch.device,
   ):
-      # super().__init__(size, batch_size, device)
       self.device = device
       self.num_envs = num_envs
       self.num_transitions_per_env = num_transitions_per_env
@@ -74,25 +71,27 @@ class PPOBuffer(BaseBuffer):
       self.returns = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
       self.advantages = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
 
+      self.step = 0
 
     
   def add(self, transition: Transition):
       if self.step >= self.num_transitions_per_env:
          raise OverflowError("Rollout buffer overflow! Call clear() before adding new transitions.")
       
-      self.observations[self.step].copy_(transition.observations)
-      if self.privileged_obs_dim is not None:
-        self.privileged_observations[self.step].copy_(transition.privileged_observations)
+      self.observations[self.step].copy_(transition.actor_observations)
+      self.critic_observations[self.step].copy_(transition.critic_observations)
       self.actions[self.step].copy_(transition.actions)
-      self.privileged_actions[self.step].copy_(transition.privileged_actions)
       self.rewards[self.step].copy_(transition.rewards)
-      
-      self.values[self.step].copy_(transition.values)
       self.dones[self.step].copy_(transition.dones)
-      self.mu[self.step].copy_(transition.mu)
-      self.sigma[self.step].copy_(transition.sigma)
+      self.values[self.step].copy_(transition.values)
+      self.actions_log_prob[self.step].copy_(transition.actions_log_prob)
+      self.mu[self.step].copy_(transition.action_mean)
+      self.sigma[self.step].copy_(transition.action_sigma)
 
-      self.step += 1      
+      self.step += 1     
+
+  def clear(self):
+    self.step = 0
       
   def compute_returns(
       self,
@@ -124,10 +123,10 @@ class PPOBuffer(BaseBuffer):
      mini_batch_size = self.num_envs * self.num_transitions_per_env // num_mini_batches
      indices = torch.randperm(num_mini_batches * mini_batch_size, requires_grad=False, device=self.device)
      observations = self.observations.flatten(0, 1)
-     if self.privileged_obs_dim is not None:
-        privileged_observations = self.privileged_observations.flatten(0, 1)
+     if self.critic_obs_dim is not None:
+        critic_observations = self.critic_observations.flatten(0, 1)
      else:
-        privileged_observations = None
+        critic_observations = None
 
 
      actions = self.actions.flatten(0, 1)
@@ -146,7 +145,7 @@ class PPOBuffer(BaseBuffer):
           batch_idx = indices[start_idx:end_idx]
 
           obs_batch = observations[batch_idx]
-          privileged_obs_batch = privileged_observations[batch_idx]
+          critic_obs_batch = critic_observations[batch_idx]
           actions_batch = actions[batch_idx]
 
           target_values_batch = values[batch_idx]
@@ -156,10 +155,7 @@ class PPOBuffer(BaseBuffer):
           old_mu_batch = old_mu[batch_idx]
           old_sigma_batch = old_sigma[batch_idx]
 
-          yield obs_batch, privileged_obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
-                    None,
-                    None,
-                )
+          yield obs_batch, critic_obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch
           
     
         

@@ -1,9 +1,32 @@
-from marl.policies.policy import Policy
+from marl.policies.component import Component
 from marl.policies.multi_agent_policy import MultiAgentPolicy
-from typing import Dict, List
+from typing import List
 
 class MultiAgentPolicyBuilder:
-    """ Builder for multi-agent policies. """
+    """
+    A builder pattern implementation for constructing complex multi-agent reinforcement learning policies.
+    
+    This class provides a fluent interface for incrementally building multi-agent systems by:
+    - Adding individual neural network components (actors, critics, encoders)
+    - Defining data flow connections between components
+    - Validating component relationships before construction
+    
+    Example:
+        >>> builder = MultiAgentPolicyBuilder()
+        >>> policy = (builder
+        ...     .add_component("encoder", "cnn", "encoder", input_shape=(84, 84, 4))
+        ...     .add_component("actor", "mlp", "actor", hidden_dims=[256, 256])
+        ...     .add_component("critic", "mlp", "critic", hidden_dims=[256, 256])
+        ...     .add_connection(["encoder"], "actor") #encoder -> actor
+        ...     .add_connection(["encoder"], "critic") #encoder -> critic
+        ...     .build())
+    
+    Raises:
+        ValueError: If attempting to add a connection with a non-existent source component.
+        ValueError: If attempting to add a connection with a non-existent target component.
+        ValueError: If invalid network parameters are provided to component creation.
+    
+    """
     def __init__(self):
         self.components = {}
         self.connections = {}
@@ -24,7 +47,7 @@ class MultiAgentPolicyBuilder:
             network_class: str,
             **network_kwargs
         """
-        self.components[component_id] = Policy(
+        self.components[component_id] = Component(
             component_id=component_id,
             network_type=network_type,
             network_class=network_class,

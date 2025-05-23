@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from marl.storage.ppo_buffer import Transition, PPOBuffer
+from marl.storage.rollout_storage import Transition, RolloutStorage
+from marl.algorithms.base import BaseAlgorithm
 from typing import Dict, Any
 
-class PPO:
+class PPO(BaseAlgorithm):
   """
   Proximal Policy Optimization algorithm (https://arxiv.org/abs/1707.06347).
   
-  Adapted from: https://github.com/leggedrobotics/rsl_rl
+  Adapted from: https://github.com/leggedrobotics/rsl_rl for multi-agent reinforcement learning.
   """
   def __init__(
       self,
@@ -45,14 +46,14 @@ class PPO:
 
   def _setup_optimizers(self):
     for agent_id in self.agents:
-      self.optimizers[agent_id] = optim.Adam([
-        {'params': self.policy.components[agent_id].parameters()["actor"], 'lr': self.learning_rate[agent_id]},
-        {'params': self.policy.components[agent_id].parameters()["critic"], 'lr': self.learning_rate[agent_id]}
-      ])
+      self.optimizers[agent_id] = optim.Adam(
+        self.policy.parameters(agent_id=agent_id),
+        lr=self.learning_rate[agent_id]
+      )
 
   def _init_storage(self, num_envs: int, agent_id: str):
     if agent_id in self.agents:
-      self.storage[agent_id] = PPOBuffer(
+      self.storage[agent_id] = RolloutStorage(
         num_envs=num_envs,
         num_transitions_per_env=self.num_transitions_per_env[agent_id],
         actor_obs_dim=self.policy.components[agent_id].network_kwargs["actor_obs_dim"],
@@ -63,34 +64,31 @@ class PPO:
     else:
       raise ValueError(f"Agent {agent_id} not found in agents list")
     
-  def act(self, obs, critic_obs, agent_id):
-    self.transitions[agent_id].actions = self.policy.act(obs)[agent_id].detach()
-    self.transitions[agent_id].values = self.policy.evaluate(critic_obs)[agent_id].detach()
-    self.transitions[agent_id].actions_log_prob = self.policy.get_actions_log_prob(self.transitions[agent_id].actions).detach()
-    self.transitions[agent_id].action_mean = self.policy.action_mean.detach() #gonna need to refactor policy
-    self.transitions[agent_id].action_sigma = self.policy.action_std.detach()
-    self.transitions[agent_id].observations = obs
+  def act(self, actor_obs, critic_obs, agent_id):
+    self.transitions[agent_id].actions = self.policy.act(actor_obs, agent_id=agent_id).detach()
+    self.transitions[agent_id].values = self.policy.evaluate(critic_obs, agent_id=agent_id).detach()
+    self.transitions[agent_id].actions_log_prob = self.policy.get_actions_log_prob(self.transitions[agent_id].actions, agent_id).detach()
+    self.transitions[agent_id].action_mean = self.policy.get_action_mean(agent_id).detach() 
+    self.transitions[agent_id].action_sigma = self.policy.get_action_std(agent_id).detach()
+    self.transitions[agent_id].actor_observations = actor_obs
     self.transitions[agent_id].critic_observations = critic_obs
     return self.transitions[agent_id].actions
 
   def process_env_step(self, rewards, dones, agent_id) -> None:
-    self.transitions[agent_id].rewards = rewards.clone()
-    self.transitions[agent_id].dones = dones.clone()
+    self.transitions[agent_id].rewards = rewards#.clone()
+    self.transitions[agent_id].dones = dones#.clone() #for single environment this is fine
 
     self.storage[agent_id].add(self.transitions[agent_id])
-    self.transitions[agent_id].clear()
+    self.transitions[agent_id] = Transition()
 
-
-    self.storage.add(self.transition)
-    self.policy.reset(dones)
 
   def compute_returns(self, last_critic_obs, agent_id) -> None:
-    last_values_dict = self.policy.evaluate(last_critic_obs)[agent_id].detach()
+    last_values = self.policy.evaluate(last_critic_obs.clone(), agent_id=agent_id).detach()
     self.storage[agent_id].compute_returns(
-      last_values_dict["values"],
+      last_values,
       self.gamma[agent_id],
       self.lambda_[agent_id],
-      not self.normalize_advantage_per_mini_batch[agent_id]
+      not self.normalize_advantage_per_mini_batch
     )
 
   def update(self, agent_id: str) -> None:
@@ -101,7 +99,7 @@ class PPO:
     generator = self.storage[agent_id].mini_batch_generator(self.num_mini_batches[agent_id], self.num_learning_epochs[agent_id])
 
     for (
-        obs_batch,
+        actor_obs_batch,
         critic_obs_batch,
         actions_batch,
         target_values_batch,
@@ -111,21 +109,20 @@ class PPO:
         old_mu_batch,
         old_sigma_batch,
         ) in generator:
-      
-      original_batch_size = obs_batch.shape[0]
+      original_batch_size = actor_obs_batch.shape[0]
 
       if self.normalize_advantage_per_mini_batch:
         with torch.no_grad():
           advantages_batch = (advantages_batch - advantages_batch.mean()) / (advantages_batch.std() + 1e-8)
         
-      self.policy.act(obs_batch)
-      actions_log_prob_batch = self.policy.get_actions_log_prob(actions_batch)[agent_id]
+      self.policy.act(actor_obs_batch, agent_id=agent_id)
+      actions_log_prob_batch = self.policy.get_actions_log_prob(actions_batch, agent_id=agent_id)
 
-      value_batch = self.policy.evaluate(critic_obs_batch)[agent_id]["values"]
+      value_batch = self.policy.evaluate(critic_obs_batch, agent_id=agent_id)
 
-      mu_batch = self.policy.action_mean[:original_batch_size]
-      sigma_batch = self.policy.action_std[:original_batch_size]
-      entropy_batch = self.policy.get_entropy[:original_batch_size]
+      mu_batch = self.policy.get_action_mean(agent_id)[:original_batch_size]
+      sigma_batch = self.policy.get_action_std(agent_id)[:original_batch_size]
+      entropy_batch = self.policy.get_entropy(agent_id)[:original_batch_size]
 
       if self.desired_kl[agent_id] is not None and self.schedule[agent_id] == "adaptive":
         with torch.inference_mode():
@@ -167,7 +164,7 @@ class PPO:
 
       self.optimizers[agent_id].zero_grad()
       loss.backward()
-      nn.utils.clip_grad_norm_(self.policy.components[agent_id].parameters(), self.max_grad_norm[agent_id])
+      nn.utils.clip_grad_norm_(self.policy.parameters(agent_id=agent_id), self.max_grad_norm[agent_id])
       self.optimizers[agent_id].step()
 
       mean_value_loss += value_loss.item()

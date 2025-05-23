@@ -1,9 +1,9 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from marl.utils.config_utils import build_env_from_config, build_policy_from_config, build_agent_from_config, parse_agent_configs
-from marl.agents.standard_agent import StandardAgent
+from marl.agents.basic_agent import BasicAgent
 from marl.algorithms.ppo import PPO
-from marl.envs.wrappers.common import TorchObsWrapper
+from marl.envs.wrappers._robosuite import TorchObsWrapper
 
 @hydra.main(version_base=None, config_path="../.configs", config_name="config")
 def test_agent(cfg: DictConfig):
