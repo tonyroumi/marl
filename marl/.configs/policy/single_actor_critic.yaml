@@ -1,5 +1,5 @@
 components:  
-  single_agent:
+  agent_0:
     network_type: "mlp"
     network_class: "actor_critic"
     critic_obs_dim: 86

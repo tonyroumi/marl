@@ -9,7 +9,6 @@ def wrap_env(env, wrappers=[]):
         env = wrapper(env)
     return env
 
-
 def make_env(
     env_id: str,
     env_type: str,

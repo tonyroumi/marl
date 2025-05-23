@@ -6,9 +6,8 @@ import torch
 @dataclass
 class Transition:
   observations: torch.Tensor = None
-  privileged_observations: torch.Tensor = None
+  critic_observations: torch.Tensor = None
   actions: torch.Tensor = None
-  privileged_actions: torch.Tensor = None
   rewards: torch.Tensor = None
   dones: torch.Tensor = None
   values: torch.Tensor = None
@@ -16,15 +15,13 @@ class Transition:
   action_mean: torch.Tensor = None
   action_sigma: torch.Tensor = None
   
-  
-
 class PPOBuffer(BaseBuffer):
   def __init__(
       self,
       num_envs: int,
       num_transitions_per_env: int,
-      obs_dim: int,
-      privileged_obs_dim: int,
+      actor_obs_dim: int,
+      critic_obs_dim: int,
       action_dim: int,
       device: torch.device,
   ):
@@ -32,25 +29,24 @@ class PPOBuffer(BaseBuffer):
       self.device = device
       self.num_envs = num_envs
       self.num_transitions_per_env = num_transitions_per_env
-      self.obs_dim = obs_dim
-      self.privileged_obs_dim = privileged_obs_dim
+      self.actor_obs_dim = actor_obs_dim
+      self.critic_obs_dim = critic_obs_dim
       self.action_dim = action_dim
 
       self.observations = torch.zeros(
         num_transitions_per_env,
         num_envs,
-        obs_dim,
+        self.actor_obs_dim,
         device=self.device,
       )
 
-      self.privileged_observations = None
-      if privileged_obs_dim is not None:
-        self.privileged_observations = torch.zeros(
-          num_transitions_per_env,
-          num_envs,
-          privileged_obs_dim,
-          device=self.device,
-        )
+  
+      self.critic_observations = torch.zeros(
+        num_transitions_per_env,
+        num_envs,
+        self.critic_obs_dim,
+        device=self.device,
+      )
 
       self.rewards = torch.zeros(
         num_transitions_per_env,
@@ -61,7 +57,7 @@ class PPOBuffer(BaseBuffer):
       self.actions = torch.zeros(
         num_transitions_per_env,
         num_envs,
-        action_dim,
+        self.action_dim,
         device=self.device,
       )
       self.dones = torch.zeros(

@@ -12,72 +12,119 @@ class StandardAgent(BaseAgent):
       env: Any,
       policy: BasePolicy, 
       algorithm: BaseAlgorithm,
-      agent_cfg: Dict[str, Any],
-      algorithm_cfg: Dict[str, Any],
-      **kwargs: Any):
-    super().__init__(policy, **kwargs)
+      actor_obs_keys: Dict[str, Any],
+      critic_obs_keys: Dict[str, Any],
+      normalize_observations: bool,
+      preprocess_observations: bool,
+      ):
+    super().__init__(policy)
     self.device = policy.device
 
     self.env = env
+    self.env.num_envs = 1 #Placeholder. add vectorized envs later
+    
     self.policy = policy
     self.algorithm = algorithm
     
-    self.algorithm_cfg = algorithm_cfg
-    self.agent_cfg = agent_cfg
+    self.actor_obs_keys = actor_obs_keys
+    self.critic_obs_keys = critic_obs_keys
 
-    self.agents = agent_cfg.get("agents", [])
-    self.critics = agent_cfg.get("critic", self.agents)
+    self.agents = list(self.actor_obs_keys.keys())
+    self.critics = list(self.critic_obs_keys.keys())
+
+    self.normalize_observations = normalize_observations
+    self.preprocess_observations = preprocess_observations
 
     self.buffers = {}
-
-    # self.logger = logger()
-
     self.initialize_buffers()
 
   def initialize_buffers(self):
-    for agent, critic in zip(self.agents, self.critics):
-      self.buffers[agent] = self.algorithm.init_storage(
-        1,
-        self.algorithm_cfg.get("num_transitions_per_env", 1000),
-        self.policy.components[agent].network_kwargs['actor_obs_dim'],
-        self.policy.components[critic].network_kwargs['critic_obs_dim'],
-        self.agent_cfg.get("num_actions", 14),
-        self.device
+    for agent in self.actor_obs_keys:
+      self.buffers[agent] = self.algorithm._init_storage(
+        self.env.num_envs,
+        agent
       )
   
   def preprocess_obs(self, obs):
     pass
 
+  def preprocess_img_obs(self, obs):
+    pass
 
   def act(self, obs, privileged_obs):
     pass
 
   def learn(self):
     #initalize logger bla bla
-    obs, info = self.env.get_obs()
-    privileged_obs = obs
+    all_obs = self.env._get_observations()
 
-    obs, privileged_obs = obs.to(self.device), privileged_obs.to(self.device)
+    actor_obs, critic_obs = {}, {}
+    for agent, critic in zip(self.agents, self.critics):
+      actor_obs[agent] = torch.cat([all_obs[key] for key in self.actor_obs_keys[agent]], dim=-1).to(self.device)
+      critic_obs[critic] = torch.cat([all_obs[key] for key in self.critic_obs_keys[critic]], dim=-1).to(self.device)
 
     ep_infos = []
     rewbuffer = deque(maxlen=100) #maybe we can have a wrapper to save this instead
     lenbuffer = deque(maxlen=100)
 
     start_iter = 0
-    tot_iter = self.algorithm_cfg.get("total_timesteps", 1000000)
+    tot_iter = 1000000 #TODO
 
     for it in range(start_iter, tot_iter):
       start = time.time()
-      if it < stat_iter:
-        self.policy.set_train_mode()
-        self.algorithm.set_train_mode()
-      else:
-        self.policy.set_eval_mode()
-        self.algorithm.set_eval_mode()
+      #Collect rollouts
+      with torch.inference_mode():
+        for _ in range(self.algorithm.num_steps_per_env['agent_0']):
+          actions, info = self.policy.act(actor_obs) #RESUME HERE
+          concatenated_actions = torch.cat([actions[agent] for agent in self.agents], dim=-1)
+          obs, rewards, dones, infos = self.env.step(concatenated_actions.to(self.device))
+          
 
+          obs, rewards, dones = (obs.to(self.device), rewards.to(self.device), dones.to(self.device))
+
+          obs = self.obs_normalizer(obs)
+
+          if self.privileged_obs_dim is not None:
+            privileged_obs = self.privileged_obs_normalizer(
+              privileged_obs,
+            )
+          else:
+            privileged_obs = obs
+          
+          self.algorithm.process_env_step( #This may need to be different depending on the agent
+            rewards,
+            dones,
+            infos
+          )
+
+            # logger.log()
+        stop = time.time()
+        collection_time = stop - start
+        start = stop
+
+        self.algorithm.compute_returns(privileged_obs) #not sure how to handle this per agent
+      loss_dict = self.algorithm.update() #handle each agent appropriately
+      stop = time.time()
+      learn_time = stop - start
+      self.current_learning_iteration = it
+      self.logger.log(
+        #puthere
+      )
+      # logger.log()
+
+      # self.algorithm.update_normalizers(infos)
+
+      # self.algorithm.update_target_networks()
+
+          
+
+
+
+  def save(self, path: str):
+    #self.policy.save(path)
     pass
 
-  
-
-
+  def load(self, path: str):
+    #self.policy.load(path)
+    pass
   

@@ -313,9 +313,9 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         """
         return self.critic.evaluate(obs)
     
-    def parameters(self) -> Dict[str, List[Parameter]]:
+    def parameters(self) -> Dict[str, Iterator[Parameter]]:
         """Parameters of the network."""
-        return {"actor": list(self.actor.parameters()), "critic": list(self.critic.parameters())}
+        return {"actor": self.actor.parameters(), "critic": self.critic.parameters()}
         
 class MLPEncoderNetwork(BaseNetwork):
     """MLP-based Encoder Network."""
