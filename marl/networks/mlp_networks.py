@@ -9,7 +9,16 @@ from marl.networks.base_networks import BaseActorNetwork, BaseCriticNetwork, Bas
 from marl.utils.utils import resolve_nn_activation
 
 class MLPActorNetwork(BaseActorNetwork):
-    """MLP Actor Network."""
+    """MLP Actor Network.
+    
+    Args:
+        observation_dim: Dimension of observation space
+        num_actions: Dimension of action space
+        hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+        init_noise_std: Initial standard deviation of noise
+        noise_std_type: Type of noise standard deviation
+    """
     
     def __init__(
         self, 
@@ -20,17 +29,6 @@ class MLPActorNetwork(BaseActorNetwork):
         init_noise_std = 1.0,
         noise_std_type="scalar"
         ):
-        """
-        Initalize MLP actor network.
-
-        Args:
-            observation_dim: Dimension of observation space
-            num_actions: Dimension of action space
-            hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-            init_noise_std: Initial standard deviation of noise
-            noise_std_type: Type of noise standard deviation
-        """
         super().__init__()
         
         self.actor_obs_dim = actor_obs_dim
@@ -140,7 +138,15 @@ class MLPActorNetwork(BaseActorNetwork):
                     
             
 class MLPCriticNetwork(BaseCriticNetwork):
-    """MLP-based Critic Network."""
+    """MLP-based Critic Network.
+
+    Args:
+        critic_obs_dim: Dimension of observation space
+        critic_output_dim: Dimension of critic output
+        critic_hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+        
+    """
     
     def __init__(
         self, 
@@ -149,15 +155,6 @@ class MLPCriticNetwork(BaseCriticNetwork):
         critic_hidden_dims: List[int] = [256, 256],
         activation: str = "relu",
         ):
-        """
-        Initialize MLP critic network.
-
-        Args:
-            observation_dim: Dimension of observation space
-            critic_output_dim: Dimension of critic output
-            hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-        """
         super().__init__()
 
         self.critic_obs_dim = critic_obs_dim
@@ -199,7 +196,17 @@ class MLPCriticNetwork(BaseCriticNetwork):
         return self.critic.parameters()
     
 class MLPActorCriticNetwork(BaseActorCriticNetwork):
-    """MLP-based Actor-Critic Network."""
+    """MLP-based Actor-Critic Network.
+    
+    Args:
+        actor_obs_dim: Dimension of observation space for actor network
+        critic_obs_dim: Dimension of observation space for critic network
+        num_actions: Dimension of action space
+        critic_output_dim: Dimension of critic output
+        actor_hidden_dims: Dimensions of hidden layers
+        critic_hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+    """
     
     def __init__(
         self,
@@ -211,18 +218,6 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         critic_hidden_dims: List[int] = [256, 256],
         activation: str = "relu",
         ):
-        """
-        Initialize MLP actor-critic network.
-
-        Args:
-            actor_obs_dim: Dimension of observation space for actor network
-            critic_obs_dim: Dimension of observation space for critic network
-            num_actions: Dimension of action space
-            critic_output_dim: Dimension of critic output
-            actor_hidden_dims: Dimensions of hidden layers
-            critic_hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-        """
         super().__init__()
 
         self.actor = MLPActorNetwork(
@@ -337,7 +332,14 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         return iter(list(self.actor.parameters()) + list(self.critic.parameters()))
         
 class MLPEncoderNetwork(BaseNetwork):
-    """MLP-based Encoder Network."""
+    """MLP-based Encoder Network.
+    
+    Args:
+        input_dim: Input feature dimension
+        output_dim: Output feature dimension
+        hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+    """
 
     def __init__(
         self,
@@ -346,15 +348,6 @@ class MLPEncoderNetwork(BaseNetwork):
         hidden_dims: List[int] = [256, 256],
         activation: str = "relu"
     ):
-        """
-        Initialize MLP encoder.
-
-        Args:
-            input_dim: Input feature dimension
-            output_dim: Output feature dimension
-            hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-        """
         super().__init__()
 
         self.input_dim = input_dim

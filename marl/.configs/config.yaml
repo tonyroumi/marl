@@ -19,4 +19,4 @@ experiment:
 #Custom Hydra run directory
 hydra:
   run:
-    dir: results/${hydra:runtime.choices.environment}/${hydra:runtime.choices.policies}/${now:%Y.%m.%d}
+    dir: results/${hydra:runtime.choices.environment}/${hydra:runtime.choices.policy}/${now:%Y.%m.%d}

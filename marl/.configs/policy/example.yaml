@@ -7,7 +7,7 @@ components:
     output_dim: 10
     hidden_dims: [32]
   
-  agent:
+  agent_0:
     network_type: "mlp"
     network_class: "actor_critic"
     critic_obs_dim: 10
@@ -18,6 +18,6 @@ components:
     critic_hidden_dims: [32]
 
 connections:
-  - source_id: ["agent"]
+  - source_id: ["agent_0"]
     target_id: "encoder"
     concat_dim: 1

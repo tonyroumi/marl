@@ -12,17 +12,16 @@ from torch import nn
 
 
 class EmpiricalNormalization(nn.Module):
-    """Normalize mean and variance of values based on empirical values."""
+    """Normalize mean and variance of values based on empirical values.
+    
+    Args:
+        shape (int or tuple of int): Shape of input values except batch axis.
+        eps (float): Small value for stability.
+        until (int or None): If this arg is specified, the link learns input values until the sum of batch sizes
+        exceeds it.
+    """
 
     def __init__(self, shape, eps=1e-2, until=None):
-        """Initialize EmpiricalNormalization module.
-
-        Args:
-            shape (int or tuple of int): Shape of input values except batch axis.
-            eps (float): Small value for stability.
-            until (int or None): If this arg is specified, the link learns input values until the sum of batch sizes
-            exceeds it.
-        """
         super().__init__()
         self.eps = eps
         self.until = until
