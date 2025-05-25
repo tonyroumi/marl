@@ -41,6 +41,7 @@ class Component:
         self.network_type = network_type
         self.network_class = network_class
         self.network_kwargs = network_kwargs
+        self.is_frozen = False
 
         self._build_network()
     
@@ -71,6 +72,76 @@ class Component:
         
         self.network.to(self.device)
 
+    def freeze(self):
+        """
+        Freeze all parameters in this component's network.
+        Frozen parameters will not be updated during training.
+        """
+        for param in self.network.parameters():
+            param.requires_grad = False
+        self.is_frozen = True
+        print(f"Component {self.component_id} ({self.network_class}) has been frozen")
+    
+    def unfreeze(self):
+        """
+        Unfreeze all parameters in this component's network.
+        Parameters will be updated during training.
+        """
+        for param in self.network.parameters():
+            param.requires_grad = True
+        self.is_frozen = False
+        print(f"Component {self.component_id} ({self.network_class}) has been unfrozen")
+    
+    def freeze_layers(self, layer_names: List[str]):
+        """
+        Freeze specific layers/modules by name.
+        
+        Args:
+            layer_names: List of layer names to freeze (e.g., ['layer1', 'layer2.weight'])
+        """
+        frozen_count = 0
+        for name, param in self.network.named_parameters():
+            if any(layer_name in name for layer_name in layer_names):
+                param.requires_grad = False
+                frozen_count += 1
+                print(f"Frozen parameter: {name}")
+        
+        print(f"Frozen {frozen_count} parameters in component {self.component_id}")
+    
+    def get_trainable_parameters(self) -> List[Parameter]:
+        """
+        Get only the trainable (non-frozen) parameters.
+        
+        Returns:
+            List of trainable parameters
+        """
+        return [param for param in self.network.parameters() if param.requires_grad]
+    
+    def get_parameter_info(self) -> Dict[str, Any]:
+        """
+        Get information about the parameters in this component.
+        
+        Returns:
+            Dictionary with parameter statistics
+        """
+        total_params = 0
+        trainable_params = 0
+        
+        for param in self.network.parameters():
+            param_count = param.numel()
+            total_params += param_count
+            if param.requires_grad:
+                trainable_params += param_count
+        
+        return {
+            'component_id': self.component_id,
+            'network_class': self.network_class,
+            'total_parameters': total_params,
+            'trainable_parameters': trainable_params,
+            'frozen_parameters': total_params - trainable_params,
+            'is_frozen': self.is_frozen,
+            'frozen_percentage': (total_params - trainable_params) / total_params * 100 if total_params > 0 else 0
+        }
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
@@ -194,4 +265,3 @@ class Component:
         """Load policy from disk."""
         checkpoint = torch.load(path, map_location=self.device)
         self.network.load_state_dict(checkpoint)
-        

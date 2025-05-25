@@ -4,7 +4,12 @@ from marl.networks.base_networks import BaseActorNetwork, BaseCriticNetwork, Bas
 from marl.networks.mlp_networks import MLPActorNetwork, MLPCriticNetwork, MLPActorCriticNetwork, MLPEncoderNetwork
 
 class NetworkFactory:
-    """Factory class for creating different types of networks."""
+    """Factory class for creating different types of networks.
+    
+    Raises:
+        ValueError: If network_type is not implemented. (only mlp is implemented)
+    
+    """
 
     @staticmethod
     def create_actor_network(network_type: str, 
@@ -21,8 +26,6 @@ class NetworkFactory:
             num_actions: Dimension of action space
             : Additional arguments for network construction
 
-        Raises:
-            ValueError: If network_type is not "mlp"
 
         Returns:
             An instance of the actor network
@@ -51,9 +54,6 @@ class NetworkFactory:
             critic_obs_dim: Dimension of observation space for critic network
             critic_out_dim: Dimension of critic output
             : Additional arguments for network construction
-        
-        Raises:
-            ValueError: If network_type is not "mlp"
             
         Returns:
             An instance of the critic network
@@ -88,9 +88,6 @@ class NetworkFactory:
             num_actions: Dimension of action space
             critic_out_dim: Dimension of critic output
             : Additional arguments for network construction
-        
-        Raises:
-            ValueError: If network_type is not "mlp"
             
         Returns:
             An instance of the actor-critic network
@@ -123,9 +120,6 @@ class NetworkFactory:
             input_dim: Dimension of input space
             output_dim: Dimension of output space
             : Additional arguments for network construction
-            
-        Raises:
-            ValueError: If network_type is not "mlp"
             
         Returns:
             An instance of the encoder network

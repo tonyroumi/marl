@@ -321,9 +321,9 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         """Entropy of the action distribution."""
         return self.actor.distribution.entropy().sum(dim=-1)
     
-    def parameters(self) -> Dict[str, Iterator[Parameter]]:
+    def parameters(self) -> Iterator[Parameter]:
         """Parameters of the network."""
-        return {"actor": self.actor.parameters(), "critic": self.critic.parameters()}
+        return iter(list(self.actor.parameters()) + list(self.critic.parameters()))
         
         
 class MLPEncoderNetwork(BaseNetwork):

@@ -1,8 +1,9 @@
+import os
 import torch
 from typing import Dict, Any, List, Optional, Union
+
 from marl.policies import BasePolicy
 from marl.policies.component import Component
-import os
 
 class MultiAgentPolicy(BasePolicy):
     """
@@ -101,7 +102,7 @@ class MultiAgentPolicy(BasePolicy):
                             target_inputs = torch.cat([target_inputs, obs], dim=concat_dim)
                     else:
                         # Multi-agent mode - check if this component has obs in the dict
-                        if component_id in obs:
+                        if component_id in obs and obs[component_id] is not None:
                             target_inputs = torch.cat([target_inputs, obs[component_id]], dim=concat_dim)
                     
                     # Process based on component type
@@ -167,9 +168,9 @@ class MultiAgentPolicy(BasePolicy):
             obs: Dictionary mapping agent IDs to their observations
             agent_id: Optional specific agent ID to evaluate. If None, evaluates all agents.
             
-        Returns:
-            Specific agent value estimates or all agent value estimates dictionary 
-            mapping agent IDs to their value estimates
+         Returns:
+            If agent_id is specified: Value tensor for that agent
+            If agent_id is None: Dict of {'agent_id': value_tensor} for all critic, actor_critic components
         """
         values_dict = {}
         
@@ -225,8 +226,8 @@ class MultiAgentPolicy(BasePolicy):
             agent_id: Optional specific agent ID to get actions log probability. If None, gets all agents.
             
         Returns:
-            Specific agent action log probabilities or all agent action log probabilities dictionary 
-            mapping component IDs to their action log probabilities
+            If agent_id is specified: Action log probabilities for that agent
+            If agent_id is None: Dict of {'agent_id': action_log_prob_tensor} for all actor, actor_critic components
             
         """
         log_probs = {}
@@ -257,8 +258,8 @@ class MultiAgentPolicy(BasePolicy):
             agent_id: Optional specific agent ID to get action mean. If None, gets all agents.
             
         Returns:
-            Specific agent action means or all agent action means dictionary 
-            mapping component IDs to their action means
+            If agent_id is specified: Action mean for that agent
+            If agent_id is None: Dict of {'agent_id': action_mean_tensor} for all actor, actor_critic components
         """
         means = {}
         if agent_id is not None:
@@ -283,8 +284,8 @@ class MultiAgentPolicy(BasePolicy):
             agent_id: Optional specific agent ID to get action std. If None, gets all agents.
             
         Returns:
-            Specific agent action standard deviations or all agent action standard deviations dictionary 
-            mapping component IDs to their action standard deviations
+            If agent_id is specified: Action standard deviations for that agent
+            If agent_id is None: Dict of {'agent_id': action_std_tensor} for all actor, actor_critic components
         """
         stds = {}
         if agent_id is not None:
@@ -309,8 +310,8 @@ class MultiAgentPolicy(BasePolicy):
             agent_id: Optional specific agent ID to get entropy. If None, gets all agents.
             
         Returns:
-            Specific agent entropy or all agent entropy dictionary 
-            mapping component IDs to their entropy
+            If agent_id is specified: Entropy for that agent
+            If agent_id is None: Dict of {'agent_id': entropy_tensor} for all actor, actor_critic components
         """
         entropies = {}
         if agent_id is not None:
@@ -336,8 +337,8 @@ class MultiAgentPolicy(BasePolicy):
             agent_id: Optional specific agent ID to get parameters. If None, gets all agents.
             
         Returns:
-            Specific agent parameters or all agent parameters dictionary 
-            mapping component IDs to their parameters
+            If agent_id is specified: Parameters for that agent
+            If agent_id is None: Dict of {'agent_id': parameters_dict} for all actor, actor_critic components
         """
         params = {}
         if agent_id is not None:
@@ -388,7 +389,7 @@ class MultiAgentPolicy(BasePolicy):
                 else:
                     raise ValueError(f"Component '{component_id}' not found in self.components")
         else:
-            # Existing functionality to load all components (with bug fix)
+            # Existing functionality to load all components 
             for comp_id, component in self.components.items():
                 component_path = os.path.join(path, f"{comp_id}.pt")
                 if not os.path.exists(component_path):

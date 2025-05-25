@@ -510,6 +510,231 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         with patch.object(policy, 'load', return_value=None) as mock_load:
             policy.load("test_path")
             mock_load.assert_called_once_with("test_path")
+    
+    def test_complex_freezing_functionality(self):
+        """Test freezing functionality for complex policies with multiple components."""
+        # Build a complex policy with multiple components
+        policy = self.builder.add_component(
+            component_id="encoder",
+            network_type="mlp",
+            network_class="encoder",
+            input_dim=self.obs_dim,
+            output_dim=64,
+            hidden_dims=[128, 64]
+        ).add_component(
+            component_id="agent1",
+            network_type="mlp",
+            network_class="actor_critic",
+            critic_obs_dim=self.obs_dim,  # Takes encoder output
+            actor_obs_dim=64+self.obs_dim,   # Takes encoder output
+            num_actions=self.action_dim,
+            critic_out_dim=1,
+            actor_hidden_dims=self.hidden_dims,
+            critic_hidden_dims=self.hidden_dims
+        ).add_component(
+            component_id="agent2",
+            network_type="mlp",
+            network_class="actor_critic",
+            critic_obs_dim=self.obs_dim,  # Direct observation
+            actor_obs_dim=self.obs_dim,   # Direct observation
+            num_actions=self.action_dim - 1,
+            critic_out_dim=1,
+            actor_hidden_dims=[32, 32],
+            critic_hidden_dims=[32, 32]
+        ).add_connection(
+            source_id=["encoder"],
+            target_id="agent1"
+        ).build()
+
+        # Create test observations
+        batch_size = 5
+        raw_obs = torch.rand(batch_size, self.obs_dim).to(self.device)
+        obs2 = torch.rand(batch_size, self.obs_dim).to(self.device)
+        obs = {
+            "encoder": raw_obs,
+            "agent1": raw_obs,  # Will be filled by encoder output
+            "agent2": obs2
+        }
+
+        # Test 1: Verify initial trainable parameter counts
+        initial_param_summary = {}
+        for component_id, component in policy.components.items():
+            info = component.get_parameter_info()
+            initial_param_summary[component_id] = info
+            # Initially all parameters should be trainable
+            self.assertEqual(info['trainable_parameters'], info['total_parameters'])
+            self.assertFalse(info['is_frozen'])
+
+        # Get initial outputs before any freezing
+        torch.manual_seed(42)
+        initial_actions = policy.act(obs, deterministic=True)
+        initial_values = policy.evaluate(obs)
+
+        # Test 2: Freeze encoder component
+        policy.components["encoder"].freeze()
+        
+        # Verify encoder is frozen
+        encoder_info = policy.components["encoder"].get_parameter_info()
+        self.assertTrue(encoder_info['is_frozen'])
+        self.assertEqual(encoder_info['trainable_parameters'], 0)
+        self.assertEqual(encoder_info['frozen_parameters'], encoder_info['total_parameters'])
+        
+        # Verify other components still trainable
+        for component_id in ["agent1", "agent2"]:
+            info = policy.components[component_id].get_parameter_info()
+            self.assertFalse(info['is_frozen'])
+            self.assertEqual(info['trainable_parameters'], info['total_parameters'])
+
+        # Test 3: Simulate training step on frozen encoder (should not change)
+        # Get encoder parameters before "training"
+        encoder_params_before = {}
+        for name, param in policy.components["encoder"].network.named_parameters():
+            encoder_params_before[name] = param.data.clone()
+
+        # Simulate gradient update attempt on all components
+        for component_id, component in policy.components.items():
+            for param in component.network.parameters():
+                if param.requires_grad:  # Only trainable params should be updated
+                    param.data += torch.randn_like(param.data) * 0.1
+
+        # Verify encoder parameters unchanged (frozen)
+        for name, param in policy.components["encoder"].network.named_parameters():
+            torch.testing.assert_close(encoder_params_before[name], param.data)
+
+        # Verify outputs with frozen encoder still work
+        torch.manual_seed(42)
+        actions_with_frozen_encoder = policy.act(obs, deterministic=True)
+        
+        # The encoder output should be the same, but agent outputs may differ due to agent parameter changes
+        # We'll test this by checking the encoder component specifically if we had direct access
+
+        # Test 4: Freeze multiple components
+        policy.components["agent1"].freeze()
+        
+        # Verify both encoder and agent1 are frozen
+        for component_id in ["encoder", "agent1"]:
+            info = policy.components[component_id].get_parameter_info()
+            self.assertTrue(info['is_frozen'])
+            self.assertEqual(info['trainable_parameters'], 0)
+        
+        # Verify agent2 still trainable
+        agent2_info = policy.components["agent2"].get_parameter_info()
+        self.assertFalse(agent2_info['is_frozen'])
+        self.assertEqual(agent2_info['trainable_parameters'], agent2_info['total_parameters'])
+
+        # Test 5: Get only trainable parameters
+        trainable_params = []
+        for component in policy.components.values():
+            trainable_params.extend(component.get_trainable_parameters())
+        
+        # Should only have agent2's parameters
+        expected_trainable = agent2_info['trainable_parameters']
+        actual_trainable = sum(p.numel() for p in trainable_params)
+        self.assertEqual(actual_trainable, expected_trainable)
+
+        # Test 6: Unfreeze encoder
+        policy.components["encoder"].unfreeze()
+        
+        # Verify encoder is now trainable
+        encoder_info = policy.components["encoder"].get_parameter_info()
+        self.assertFalse(encoder_info['is_frozen'])
+        self.assertEqual(encoder_info['trainable_parameters'], encoder_info['total_parameters'])
+
+        # Test 7: Test selective layer freezing
+        # First unfreeze agent1 to test layer freezing
+        policy.components["agent1"].unfreeze()
+        
+        # Get layer names for agent1 (assuming MLP structure)
+        layer_names_to_freeze = []
+        for name, _ in policy.components["agent1"].network.named_parameters():
+            if "0." in name:  # First layer parameters
+                layer_names_to_freeze.append(name)
+        
+        if layer_names_to_freeze:  # Only test if we found layers to freeze
+            # Freeze specific layers
+            policy.components["agent1"].freeze_layers(layer_names_to_freeze)
+            
+            # Verify some parameters are frozen, some are not
+            agent1_info = policy.components["agent1"].get_parameter_info()
+            self.assertFalse(agent1_info['is_frozen'])  # Not fully frozen
+            self.assertGreater(agent1_info['frozen_parameters'], 0)  # Some frozen
+            self.assertGreater(agent1_info['trainable_parameters'], 0)  # Some trainable
+
+        # Test 8: Save and load with frozen components
+        policy.components["encoder"].freeze()
+        policy.components["agent1"].freeze()
+        
+        # Save policy state
+        policy.save("test_frozen_policy")
+        
+        # Modify trainable parameters (only agent2 should change)
+        for param in policy.components["agent2"].network.parameters():
+            param.data += torch.randn_like(param.data) * 0.1
+        
+        # Verify outputs changed for agent2 only
+        torch.manual_seed(42)
+        actions_after_change = policy.act(obs, deterministic=True)
+        
+        # Load policy back
+        policy.load("test_frozen_policy")
+        
+        # Verify frozen status preserved after loading
+        self.assertTrue(policy.components["encoder"].get_parameter_info()['is_frozen'])
+        self.assertTrue(policy.components["agent1"].get_parameter_info()['is_frozen'])
+        self.assertFalse(policy.components["agent2"].get_parameter_info()['is_frozen'])
+        
+        # Test 9: Test parameter summary functionality
+        summary = {}
+        total_params = 0
+        total_trainable = 0
+        
+        for component_id, component in policy.components.items():
+            info = component.get_parameter_info()
+            summary[component_id] = info
+            total_params += info['total_parameters']
+            total_trainable += info['trainable_parameters']
+        
+        # Verify summary calculations
+        frozen_params = total_params - total_trainable
+        frozen_percentage = (frozen_params / total_params * 100) if total_params > 0 else 0
+        
+        self.assertGreater(total_params, 0)
+        self.assertGreater(frozen_params, 0)  # We have frozen components
+        self.assertGreater(total_trainable, 0)  # agent2 should still be trainable
+        self.assertLess(frozen_percentage, 100)  # Not everything is frozen
+        self.assertGreater(frozen_percentage, 0)   # But something is frozen
+
+        # Test 10: Test that frozen components still perform forward passes correctly
+        torch.manual_seed(123)
+        final_actions = policy.act(obs, deterministic=True)
+        final_values = policy.evaluate(obs)
+        
+        # Should not raise any errors and should produce valid outputs
+        for agent_id in final_actions.keys():
+            self.assertIsInstance(final_actions[agent_id], torch.Tensor)
+            self.assertEqual(final_actions[agent_id].shape[0], batch_size)
+        
+        for agent_id in final_values.keys():
+            self.assertIsInstance(final_values[agent_id], torch.Tensor)
+            self.assertEqual(final_values[agent_id].shape[0], batch_size)
+
+        # Test 11: Test stochastic actions with frozen components
+        torch.manual_seed(456)
+        stoch_actions1 = policy.act(obs, deterministic=False)
+        
+        # Actions should still be generated correctly
+        for agent_id in stoch_actions1.keys():
+            self.assertIsInstance(stoch_actions1[agent_id], torch.Tensor)
+            self.assertEqual(stoch_actions1[agent_id].shape[0], batch_size)
+        
+        # Test reproducibility with frozen components
+        torch.manual_seed(456)
+        stoch_actions2 = policy.act(obs, deterministic=False)
+        
+        for agent_id in stoch_actions1.keys():
+            torch.testing.assert_close(stoch_actions1[agent_id], stoch_actions2[agent_id])
+
+        print("All freezing functionality tests passed!")
 
     def test_complex_saving_and_loading(self):
         """Test saving and loading functionality for complex policies with multiple components."""
@@ -568,9 +793,8 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         policy.save("test_agent1", ["agent1"])
         
         # Modify agent1's weights
-        for name, param in (policy.components["agent1"].parameters().items()):
-            for data in param:
-                data.data = data.data * 2.0
+        for param in list(policy.components["agent1"].parameters()):
+            param.data = param.data * 2.0
 
         # Verify agent1 outputs changed
         torch.manual_seed(42)
@@ -592,9 +816,8 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         
         # Modify both agents' weights
         for component_id in ["agent1", "agent2"]:
-            for name, param in (policy.components[component_id].parameters().items()):
-                for data in param:
-                    data.data = data.data * 1.5
+            for param in list(policy.components[component_id].parameters()):
+                param.data = param.data * 1.5
 
         # Verify outputs changed
         torch.manual_seed(42)
@@ -618,13 +841,8 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         
         # Modify all components' weights
         for component_id in ["agent1", "agent2", "encoder"]:
-            if component_id == "encoder":
-                for param in list(policy.components[component_id].parameters()):
-                    param.data = param.data * 2.0
-            else:
-                for name, param in (policy.components[component_id].parameters().items()):
-                    for data in param:
-                        data.data = data.data * 2.0
+            for param in list(policy.components[component_id].parameters()):
+                param.data = param.data * 2.0
 
         # Verify all outputs changed
         torch.manual_seed(42)
@@ -654,13 +872,8 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         
         # Modify weights
         for component_id in ["agent1", "agent2", "encoder"]:
-            if component_id == "encoder":
-                for param in list(policy.components[component_id].parameters()):
-                    param.data = param.data * 1.5
-            else:
-                for name, param in (policy.components[component_id].parameters().items()):
-                    for data in param:
-                        data.data = data.data * 1.5
+            for param in list(policy.components[component_id].parameters()):
+                param.data = param.data * 1.5
         
         # Load policy back
         policy.load("test_policy", ["agent1", "agent2", "encoder"])

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import torch
+import os
+from marl.storage.world_model_storage import WorldModelStorage
 
 @dataclass
 class Transition:
@@ -17,10 +19,11 @@ class Transition:
     actions_log_prob: torch.Tensor = None
     action_mean: torch.Tensor = None
     action_sigma: torch.Tensor = None
-  
+
 class RolloutStorage:
     """Storage buffer for collecting and processing rollout data.
     
+    Enhanced with world model support for learning environment dynamics.
     This class manages trajectories from multiple parallel environments, computes
     advantages using GAE (Generalized Advantage Estimation), and provides mini-batch
     sampling for policy optimization.
@@ -32,6 +35,8 @@ class RolloutStorage:
       critic_obs_dim: Dimension of critic observations  
       action_dim: Dimension of action space
       device: PyTorch device for tensor storage
+      world_model_buffer_size: Size of world model training buffer (optional)
+      enable_world_model: Whether to collect data for world model training
     """
     
     def __init__(
@@ -42,6 +47,8 @@ class RolloutStorage:
         critic_obs_dim: int,
         action_dim: int,
         device: torch.device,
+        world_model_buffer_size: int = 1000000,
+        enable_world_model: bool = False,
     ):
         self.device = device
         self.num_envs = num_envs
@@ -49,6 +56,7 @@ class RolloutStorage:
         self.actor_obs_dim = actor_obs_dim
         self.critic_obs_dim = critic_obs_dim
         self.action_dim = action_dim
+        self.enable_world_model = enable_world_model
 
         # Initialize storage tensors with shape [num_steps, num_envs, feature_dim]
         self.observations = torch.zeros(
@@ -57,7 +65,7 @@ class RolloutStorage:
             self.actor_obs_dim,
             device=self.device,
         )
-
+            
         self.critic_observations = torch.zeros(
             num_transitions_per_env,
             num_envs,
@@ -97,6 +105,23 @@ class RolloutStorage:
         self.advantages = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
 
         self.step = 0
+        
+        # World model components
+        if self.enable_world_model:
+            self.world_model_buffer = WorldModelStorage(
+                capacity=world_model_buffer_size,
+                state_dim=actor_obs_dim,
+                action_dim=action_dim,
+                device=device
+            )
+            
+            # Store next observations for world model training
+            self.next_observations = torch.zeros(
+                num_transitions_per_env,
+                num_envs,
+                self.actor_obs_dim,
+                device=self.device,
+            )
 
     def add(self, transition: Transition):
         """Add a new transition to the buffer.
@@ -123,9 +148,36 @@ class RolloutStorage:
 
         self.step += 1     
 
+    def add_next_observations(self, next_obs: torch.Tensor):
+        """Add next observations for world model training.
+        
+        Args:
+            next_obs: Next observations after taking actions
+        """
+        if self.enable_world_model and self.step > 0:
+            self.next_observations[self.step - 1].copy_(next_obs)
+
     def clear(self):
         """Reset the buffer step counter to allow new data collection."""
         self.step = 0
+        
+    def transfer_to_world_model_buffer(self):
+        """Transfer collected data to the world model buffer for long-term storage."""
+        if not self.enable_world_model:
+            return
+            
+        if self.step == 0:
+            return
+            
+        # Flatten the rollout data
+        states = self.observations[:self.step].flatten(0, 1)  # [steps*envs, obs_dim]
+        actions = self.actions[:self.step].flatten(0, 1)      # [steps*envs, action_dim]
+        next_states = self.next_observations[:self.step].flatten(0, 1)  # [steps*envs, obs_dim]
+        rewards = self.rewards[:self.step].flatten(0, 1)      # [steps*envs, 1]
+        dones = self.dones[:self.step].flatten(0, 1)          # [steps*envs, 1]
+        
+        # Add to world model buffer
+        self.world_model_buffer.add_batch(states, actions, next_states, rewards, dones)
       
     def compute_returns(
         self,
@@ -221,3 +273,62 @@ class RolloutStorage:
                 yield (obs_batch, critic_obs_batch, actions_batch, target_values_batch, 
                        advantages_batch, returns_batch, old_actions_log_prob_batch, 
                        old_mu_batch, old_sigma_batch)
+    
+    def world_model_batch_generator(self, batch_size: int):
+        """Generate batches for world model training.
+        
+        Args:
+            batch_size: Size of each training batch
+            
+        Yields:
+            WorldModelTransition: Batch of world model training data
+        """
+        if not self.enable_world_model:
+            raise ValueError("World model is not enabled. Set enable_world_model=True during initialization.")
+            
+        return self.world_model_buffer.sample(batch_size)
+    
+    def save_world_model_data(self, filepath: str):
+        """Save world model buffer to disk.
+        
+        Args:
+            filepath: Path to save the world model data
+        """
+        if not self.enable_world_model:
+            raise ValueError("World model is not enabled.")
+            
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        self.world_model_buffer.save(filepath)
+    
+    def load_world_model_data(self, filepath: str):
+        """Load world model buffer from disk.
+        
+        Args:
+            filepath: Path to load the world model data from
+        """
+        if not self.enable_world_model:
+            raise ValueError("World model is not enabled.")
+            
+        self.world_model_buffer.load(filepath)
+    
+    def get_world_model_buffer_size(self) -> int:
+        """Get current size of world model buffer."""
+        if not self.enable_world_model:
+            return 0
+        return self.world_model_buffer.size
+    
+    def get_world_model_statistics(self) -> dict:
+        """Get statistics about the world model buffer."""
+        if not self.enable_world_model:
+            return {}
+            
+        buffer = self.world_model_buffer
+        return {
+            'size': buffer.size,
+            'capacity': buffer.capacity,
+            'utilization': buffer.size / buffer.capacity,
+            'mean_reward': buffer.rewards[:buffer.size].mean().item(),
+            'std_reward': buffer.rewards[:buffer.size].std().item(),
+            'done_rate': buffer.dones[:buffer.size].float().mean().item()
+        }
