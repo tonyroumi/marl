@@ -306,30 +306,25 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         """
         return self.actor.get_actions_log_prob(actions)
     
-    def get_action_mean(self) -> torch.Tensor:
-        """
-        Get the mean of the action distribution.
-        """
+    @property
+    def action_mean(self) -> torch.Tensor: 
+        """Mean of the action distribution."""
         return self.actor.action_mean
     
-    def get_action_std(self) -> torch.Tensor:
-        """
-        Get the standard deviation of the action distribution.
-        """
+    @property
+    def action_std(self) -> torch.Tensor:
+        """Standard deviation of the action distribution."""
         return self.actor.action_std
     
-    def get_entropy(self) -> torch.Tensor:
-        """
-        Get the entropy of the action distribution.
-        """
-        return self.actor.entropy
+    @property
+    def entropy(self) -> torch.Tensor:
+        """Entropy of the action distribution."""
+        return self.actor.distribution.entropy().sum(dim=-1)
     
-    def parameters(self, split: bool = False) -> Union[Dict[str, Iterator[Parameter]], Iterator[Parameter]]:
+    def parameters(self) -> Dict[str, Iterator[Parameter]]:
         """Parameters of the network."""
-        if split:
-            return {"actor": self.actor.parameters(), "critic": self.critic.parameters()}
+        return {"actor": self.actor.parameters(), "critic": self.critic.parameters()}
         
-        return iter(list(self.actor.parameters()) + list(self.critic.parameters()))
         
 class MLPEncoderNetwork(BaseNetwork):
     """MLP-based Encoder Network.

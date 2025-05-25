@@ -40,19 +40,22 @@ class MultiAgentPolicy(BasePolicy):
     
     def act(
         self, 
-        obs: Union[Dict[str, torch.Tensor], torch.Tensor], 
-        deterministic: bool = False,
-        agent_id: Optional[str] = None
+        obs, 
+        deterministic: bool = False, 
+        agent_id: Optional[str] = None, 
+        return_all: bool = True
         ) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
-        """ Process observations through the policy components
+        """
+        Get actions from policy components.
         
         Args:
-            obs: Dictionary mapping agent IDs to their observations
+            obs: Observations - tensor if agent_id specified, dict of {agent_id: tensor} if not
             deterministic: Whether to use deterministic actions
-            agent_id: Optional specific agent ID to process. If None, processes all agents.
-            
+            agent_id: Specific agent ID to get actions for. If None, returns all agents.
+        
         Returns:
-            Specific agent actions or all agent actions dictionary mapping agent IDs to their actions
+            If agent_id is specified: Action tensor for that agent
+            If agent_id is None: Dict of {'agent_id': action_tensor} for all actor components
         """
         # If agent_id is specified, validate it exists
         if agent_id is not None:
@@ -78,6 +81,8 @@ class MultiAgentPolicy(BasePolicy):
                 raise ValueError(f"Component {component_id} not found in components")
             
             component = self.components[component_id]
+            
+            # Handle connected components
             if component_id in self.connections:
                 for conn in self.connections[component_id]:
                     source_ids = conn['source_id']
@@ -87,17 +92,68 @@ class MultiAgentPolicy(BasePolicy):
                         if source_id not in component_outputs:
                             raise ValueError(f"Source {source_id} not found in component outputs")
                         target_inputs.append(component_outputs[source_id])
-                target_inputs = torch.cat(target_inputs, dim=concat_dim) if len(target_inputs) > 1 else target_inputs[0]
-                if component_id in obs:
-                    target_inputs = torch.cat([target_inputs, obs[component_id]], dim=concat_dim)
-                component_outputs[component_id] = component.forward(target_inputs)
+                    target_inputs = torch.cat(target_inputs, dim=concat_dim) if len(target_inputs) > 1 else target_inputs[0]
+                    
+                    # Add direct observations if available for this component
+                    if agent_id is not None:
+                        # Single agent mode - check if this component has direct obs access
+                        if hasattr(component, 'uses_direct_obs') and component.uses_direct_obs:
+                            target_inputs = torch.cat([target_inputs, obs], dim=concat_dim)
+                    else:
+                        # Multi-agent mode - check if this component has obs in the dict
+                        if component_id in obs:
+                            target_inputs = torch.cat([target_inputs, obs[component_id]], dim=concat_dim)
+                    
+                    # Process based on component type
+                    if component.network_class in ["actor", "actor_critic"]:
+                        component_outputs[component_id] = component.act(target_inputs, deterministic=deterministic)
+                    elif component.network_class == "encoder":
+                        component_outputs[component_id] = component.forward(target_inputs)
             else:
+                # Handle non-connected components
                 if component.network_class in ["actor", "actor_critic"]:
-                    return component.act(obs, deterministic=deterministic)
-                elif component.network_class == "encoder":
-                    component_outputs[component_id] = component.forward(obs)
+                    # Get the appropriate observation for this component
+                    if agent_id is not None:
+                        if type(obs) == dict:
+                            raise ValueError(f"Observations must be a tensor for single agent mode. (no dependencies)")
+                        # Single agent mode - obs is a tensor
+                        if component_id == agent_id:
+                            return component.act(obs, deterministic=deterministic)
+                    else:
+                        # Multi-agent mode - obs is a dict
+                        if type(obs) != dict:
+                            raise ValueError(f"No specific observations provided. Must specify agent_id or define agent specific observations..")
+                        if component_id in obs:
+                            component_outputs[component_id] = component.act(obs[component_id], deterministic=deterministic)
+                        else:
+                            raise ValueError(f"No observation provided for agent {component_id}")
+                elif component.network_class != "critic":
+                    # For encoders, handle obs appropriately
+                    if agent_id is not None:
+                        component_outputs[component_id] = component.forward(obs)
+                    else:
+                        # In multi-agent mode, encoder might need specific obs or all obs
+                        if component_id in obs:
+                            component_outputs[component_id] = component.forward(obs[component_id])
+                        else:
+                            raise ValueError(f"No observation provided for {component_id}")
         
-        return component_outputs
+        # If specific agent was requested, return its output
+        if agent_id is not None:
+            if agent_id in component_outputs:
+                return component_outputs[agent_id]
+            else:
+                raise ValueError(f"No output generated for agent {agent_id}")
+        if return_all:
+            return component_outputs
+        # Filter to only return actor/actor_critic outputs as final result
+        actor_outputs = {}
+        for component_id, output in component_outputs.items():
+            component = self.components[component_id]
+            if component.network_class in ["actor", "actor_critic"]:
+                actor_outputs[component_id] = output
+        
+        return actor_outputs
     
     def evaluate(
         self, 
@@ -139,6 +195,8 @@ class MultiAgentPolicy(BasePolicy):
                         elif component_id in obs:
                             return component.evaluate(obs[component_id])
         else:
+            if type(obs) != dict:
+                raise ValueError(f"No specific observations provided.")
             # Original behavior: process all agents
             for agent_id, agent_obs in obs.items():
                 if agent_id not in self.components:
@@ -181,6 +239,8 @@ class MultiAgentPolicy(BasePolicy):
         else:
             for component_id, component in self.components.items():
                 if component.network_class in ["actor", "actor_critic"]:
+                    if type(actions) != dict:
+                        raise ValueError(f"No specific actions provided.")
                     if component_id not in actions:
                         raise ValueError(f"Actions for component {component_id} not found in actions dictionary")
                     log_probs[component_id] = component.get_actions_log_prob(actions[component_id])
@@ -290,36 +350,49 @@ class MultiAgentPolicy(BasePolicy):
                 params[component_id] = component.parameters()
         return params
     
-    def save(self, path: str):
+    def save(self, path: str, component_ids: Optional[List[str]] = None):
         """Save all policies and critics to disk."""
         os.makedirs(path, exist_ok=True)
         
-        for component_id, component in self.components.items():
-            component_path = os.path.join(path, f"{component_id}.pt")
-            component.save(component_path)
+        if component_ids is not None:
+            for component_id in component_ids:
+                if component_id not in self.components:
+                    raise ValueError(f"Component ID {component_id} not found in components")
+                component = self.components[component_id]
+                component_path = os.path.join(path, f"{component_id}.pt")
+                component.save(component_path)
+                print(f"Saved component '{component_id}' to {component_path}")
+            return
+        else:
+            for component_id, component in self.components.items():
+                component_path = os.path.join(path, f"{component_id}.pt")
+                component.save(component_path)
         print(f"Saved all components to {path}")
 
-    def load(self, path: str, component_id: Optional[str] = None):
+    def load(self, path: str, component_ids: Optional[List[str]] = None):
         """
         Load a specific component from disk.
         
         Args:
             path: Path to the directory containing saved components
-            component_id: ID of the specific component to load. If None, loads all components.
+            component_ids: IDs of the components to load. If None, loads all components.
         """
-        if component_id is not None:
+        if component_ids is not None:
             # Load only the specified component
-            if component_id in self.components:
-                component = self.components[component_id]
-                component_path = os.path.join(path, f"{component_id}.pt")
-                component.load(component_path)
-                print(f"Loaded component '{component_id}' from {component_path}")
-            else:
-                raise ValueError(f"Component '{component_id}' not found in self.components")
+            for component_id in component_ids:
+                if component_id in self.components:
+                    component = self.components[component_id]
+                    component_path = os.path.join(path, f"{component_id}.pt")
+                    component.load(component_path)
+                    print(f"Loaded component '{component_id}' from {component_path}")
+                else:
+                    raise ValueError(f"Component '{component_id}' not found in self.components")
         else:
             # Existing functionality to load all components (with bug fix)
             for comp_id, component in self.components.items():
                 component_path = os.path.join(path, f"{comp_id}.pt")
+                if not os.path.exists(component_path):
+                    raise FileNotFoundError(f"Component file not found at {component_path}")
                 component.load(component_path)
             print(f"Loaded all components from {path}")
 

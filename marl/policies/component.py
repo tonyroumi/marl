@@ -145,7 +145,7 @@ class Component:
             mean: The mean of the action distribution
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
-            return self.network.get_action_mean()
+            return self.network.action_mean
         else:
             raise ValueError("Cannot get action mean from critic-only network")
     
@@ -157,7 +157,7 @@ class Component:
             std: The standard deviation of the action distribution
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
-            return self.network.get_action_std()
+            return self.network.action_std
         else:
             raise ValueError("Cannot get action std from critic-only network")
     
@@ -169,7 +169,7 @@ class Component:
             entropy: The entropy of the action distribution
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
-            return self.network.get_entropy()
+            return self.network.entropy
         else:
             raise ValueError("Cannot get entropy from critic-only network")
     
@@ -179,27 +179,19 @@ class Component:
     
     def state_dict(self):
         """ Get the policy state dict for saving."""
-        return {
-            "network": self.network.state_dict(),
-            "network_class": self.network_class
-        }
+        return self.network.state_dict()
     
     def load_state_dict(self, state_dict):
         """Load policy state dict."""
-        self.network.load_state_dict(state_dict["network"])
-        self.network_class = state_dict["network_class"]
+        self.network.load_state_dict(state_dict)
         
     def save(self, path):
         """Save policy to disk."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save({
-            "network": self.network.state_dict(),
-            "network_class": self.network_class,
-        }, path)
+        torch.save(self.network.state_dict(), path)
     
     def load(self, path):
         """Load policy from disk."""
         checkpoint = torch.load(path, map_location=self.device)
-        self.network.load_state_dict(checkpoint["network"])
-        self.network_class = checkpoint["network_class"]
+        self.network.load_state_dict(checkpoint)
         

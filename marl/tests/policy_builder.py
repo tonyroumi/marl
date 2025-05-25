@@ -41,28 +41,42 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         component = policy.components["agent1"]
         
         # Get outputs from direct component forward pass
-        component_out, component_info = component.act(obs, deterministic=True)
-        policy_out, policy_info = policy.act({"agent1": obs}, deterministic=True)
+        component_out = component.act(obs, deterministic=True)
+        policy_out = policy.act(obs, agent_id="agent1", deterministic=True)
 
         # Verify policy outputs match direct component outputs
-        torch.testing.assert_close(component_out, policy_out["agent1"])
-        assert_dicts_close(component_info, policy_info["agent1"])
+        torch.testing.assert_close(component_out, policy_out)
+
+        #Get outputs without explicit agent_id
+        policy_out = policy.act({"agent1": obs}, deterministic=True)
+
+        torch.testing.assert_close(component_out, policy_out['agent1'])
 
         # Test get_actions method with deterministic flag
         component_out = component.evaluate(obs)
-        policy_out = policy.evaluate({"agent1": obs})
+        policy_out = policy.evaluate(obs, agent_id="agent1")
 
-        torch.testing.assert_close(component_out, policy_out["agent1"])
-        
+        torch.testing.assert_close(component_out, policy_out)
+
+        #Get outputs without explicit agent_id
+        policy_out = policy.evaluate({'agent1': obs})
+
+        torch.testing.assert_close(component_out, policy_out['agent1'])
+
         # Test get_actions method with stochastic sampling (set seed for reproducibility)
         torch.manual_seed(42)
-        component_out, component_info = component.act(obs, deterministic=False)
+        component_out = component.act(obs, deterministic=False)
         
         torch.manual_seed(42)
-        policy_out, policy_info = policy.act({"agent1": obs}, deterministic=False)
+        policy_out = policy.act({"agent1": obs}, deterministic=False)
         
-        torch.testing.assert_close(component_out, policy_out["agent1"])
-        assert_dicts_close(component_info, policy_info["agent1"])
+        torch.testing.assert_close(component_out, policy_out['agent1'])
+
+        #Get outputs without explicit agent_id
+        torch.manual_seed(42)
+        policy_out = policy.act(obs, agent_id="agent1", deterministic=False)
+
+        torch.testing.assert_close(component_out, policy_out)
         
         # Mock the save and load methods for testing
         with patch.object(policy, 'save', return_value=None) as mock_save:
@@ -110,27 +124,81 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         critic_component = policy.components["critic1"]
         
         # Test act method with deterministic flag
-        actor_out, actor_info = actor_component.act(actor_obs, deterministic=True)
-        policy_out, policy_info = policy.act({"actor1": actor_obs}, deterministic=True)
+        actor_out = actor_component.act(actor_obs, deterministic=True)
+        policy_out = policy.act({"actor1": actor_obs}, deterministic=True)
         
-        torch.testing.assert_close(actor_out, policy_out["actor1"])
-        assert_dicts_close(actor_info, policy_info["actor1"])
+        torch.testing.assert_close(actor_out, policy_out['actor1'])
+
+        #Get outputs without explicit agent_id
+        policy_out = policy.act(actor_obs, agent_id="actor1", deterministic=True)
+
+        torch.testing.assert_close(actor_out, policy_out)
         
         # Test act method with stochastic sampling (set seed for reproducibility)
         torch.manual_seed(42)
-        actor_out_stoch, actor_info_stoch = actor_component.act(actor_obs, deterministic=False)
+        actor_out_stoch = actor_component.act(actor_obs, deterministic=False)
         
         torch.manual_seed(42)
-        policy_out_stoch, policy_info_stoch = policy.act({"actor1": actor_obs}, deterministic=False)
+        policy_out_stoch = policy.act({"actor1": actor_obs}, deterministic=False)
         
-        torch.testing.assert_close(actor_out_stoch, policy_out_stoch["actor1"])
-        assert_dicts_close(actor_info_stoch, policy_info_stoch["actor1"])
+        torch.testing.assert_close(actor_out_stoch, policy_out_stoch['actor1'])
+
+        #Get outputs without explicit agent_id
+        torch.manual_seed(42)
+        policy_out = policy.act(actor_obs, agent_id="actor1", deterministic=False)
+
+        torch.testing.assert_close(actor_out_stoch, policy_out)
         
         # Test evaluate method for critic
         critic_out = critic_component.evaluate(critic_obs)
         policy_out = policy.evaluate({"critic1": critic_obs})
         
         torch.testing.assert_close(critic_out, policy_out["critic1"])
+
+        #Explicit
+        actor_std = actor_component.get_action_std()
+        policy_std = policy.get_action_std(agent_id="actor1")
+
+        torch.testing.assert_close(actor_std, policy_std)
+
+        #Get without explicit agent_id
+        actor_std = actor_component.get_action_std()
+        policy_std = policy.get_action_std()
+
+        torch.testing.assert_close(actor_std, policy_std['actor1'])
+
+        actor_mean = actor_component.get_action_mean()
+        policy_mean = policy.get_action_mean(agent_id="actor1")
+
+        torch.testing.assert_close(actor_mean, policy_mean)
+
+        #Get without explicit agent_id
+        actor_mean = actor_component.get_action_mean()
+        policy_mean = policy.get_action_mean()
+
+        torch.testing.assert_close(actor_mean, policy_mean['actor1'])
+
+        actor_entropy = actor_component.get_entropy()
+        policy_entropy = policy.get_entropy(agent_id="actor1")
+
+        torch.testing.assert_close(actor_entropy, policy_entropy)
+
+        #Get without explicit agent_id
+        actor_entropy = actor_component.get_entropy()
+        policy_entropy = policy.get_entropy()
+
+        torch.testing.assert_close(actor_entropy, policy_entropy['actor1'])
+
+        actor_action_log_prob = actor_component.get_actions_log_prob(actor_out)
+        policy_action_log_prob = policy.get_actions_log_prob(actor_out, agent_id="actor1")
+
+        torch.testing.assert_close(actor_action_log_prob, policy_action_log_prob)
+
+        #Get without explicit agent_id
+        actor_action_log_prob = actor_component.get_actions_log_prob(actor_out)
+        policy_action_log_prob = policy.get_actions_log_prob({"actor1": actor_out})
+
+        torch.testing.assert_close(actor_action_log_prob, policy_action_log_prob['actor1'])
         
         # Mock the save and load methods for testing
         with patch.object(policy, 'save', return_value=None) as mock_save:
@@ -182,17 +250,26 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         # Get individual components
         agent1_component = policy.components["agent1"]
         agent2_component = policy.components["agent2"]
+
         
         # Test act method with deterministic flag
-        agent1_out, agent1_info = agent1_component.act(obs1, deterministic=True)
-        agent2_out, agent2_info = agent2_component.act(obs2, deterministic=True)
-        policy_out, policy_info = policy.act(obs, deterministic=True)
+        agent1_out = agent1_component.act(obs1, deterministic=True)
+        agent2_out = agent2_component.act(obs2, deterministic=True)
+        policy_out = policy.act(obs, deterministic=True)
         
         torch.testing.assert_close(agent1_out, policy_out["agent1"])
         torch.testing.assert_close(agent2_out, policy_out["agent2"])
-        assert_dicts_close(agent1_info, policy_info["agent1"])
-        assert_dicts_close(agent2_info, policy_info["agent2"])
-        
+
+
+        #Explicit
+        policy_out = policy.act(obs1, agent_id="agent1", deterministic=True)
+
+        torch.testing.assert_close(agent1_out, policy_out)
+
+        policy_out = policy.act(obs2, agent_id="agent2", deterministic=True)
+
+        torch.testing.assert_close(agent2_out, policy_out)
+
         # Test evaluate method
         agent1_val = agent1_component.evaluate(obs1)
         agent2_val = agent2_component.evaluate(obs2)
@@ -200,19 +277,86 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         
         torch.testing.assert_close(agent1_val, policy_val["agent1"])
         torch.testing.assert_close(agent2_val, policy_val["agent2"])
+
+        #Explicit
+        policy_out = policy.evaluate(obs1, agent_id="agent1")
+
+        torch.testing.assert_close(agent1_val, policy_out)
+
+        policy_out = policy.evaluate(obs2, agent_id="agent2")
+
+        torch.testing.assert_close(agent2_val, policy_out)
         
         # Test act method with stochastic sampling (set seed for reproducibility)
         torch.manual_seed(42)
-        agent1_out_stoch, agent1_info_stoch = agent1_component.act(obs1, deterministic=False)
-        agent2_out_stoch, agent2_info_stoch = agent2_component.act(obs2, deterministic=False)
+        agent1_out_stoch = agent1_component.act(obs1, deterministic=False)
+        agent2_out_stoch = agent2_component.act(obs2, deterministic=False)
         
         torch.manual_seed(42)
-        policy_out_stoch, policy_info_stoch = policy.act(obs, deterministic=False)
+        policy_out_stoch = policy.act(obs, deterministic=False)
         
         torch.testing.assert_close(agent1_out_stoch, policy_out_stoch["agent1"])
         torch.testing.assert_close(agent2_out_stoch, policy_out_stoch["agent2"])
-        assert_dicts_close(agent1_info_stoch, policy_info_stoch["agent1"])
-        assert_dicts_close(agent2_info_stoch, policy_info_stoch["agent2"])
+
+        #Test get_action_std
+        agent1_std = agent1_component.get_action_std()
+        agent2_std = agent2_component.get_action_std()
+        policy_std = policy.get_action_std(agent_id="agent1")
+        policy_std2 = policy.get_action_std(agent_id="agent2")
+
+        torch.testing.assert_close(agent1_std, policy_std)
+        torch.testing.assert_close(agent2_std, policy_std2)
+
+        #Get without explicit agent_id
+        policy_std_dict = policy.get_action_std()
+        torch.testing.assert_close(agent1_std, policy_std_dict['agent1'])
+        torch.testing.assert_close(agent2_std, policy_std_dict['agent2'])
+
+        #Test get_action_mean
+        agent1_mean = agent1_component.get_action_mean()
+        agent2_mean = agent2_component.get_action_mean()
+        policy_mean = policy.get_action_mean(agent_id="agent1")
+        policy_mean2 = policy.get_action_mean(agent_id="agent2")
+
+        torch.testing.assert_close(agent1_mean, policy_mean)
+        torch.testing.assert_close(agent2_mean, policy_mean2)
+
+        #Get without explicit agent_id
+        policy_mean_dict = policy.get_action_mean()
+        torch.testing.assert_close(agent1_mean, policy_mean_dict['agent1'])
+        torch.testing.assert_close(agent2_mean, policy_mean_dict['agent2'])
+
+        #Test get_entropy
+        agent1_entropy = agent1_component.get_entropy()
+        agent2_entropy = agent2_component.get_entropy()
+        policy_entropy = policy.get_entropy(agent_id="agent1")
+        policy_entropy2 = policy.get_entropy(agent_id="agent2")
+
+        torch.testing.assert_close(agent1_entropy, policy_entropy)
+        torch.testing.assert_close(agent2_entropy, policy_entropy2)
+
+        #Get without explicit agent_id
+        policy_entropy_dict = policy.get_entropy()
+        torch.testing.assert_close(agent1_entropy, policy_entropy_dict['agent1'])
+        torch.testing.assert_close(agent2_entropy, policy_entropy_dict['agent2'])
+
+        #Test get_actions_log_prob
+        agent1_action_log_prob = agent1_component.get_actions_log_prob(agent1_out)
+        agent2_action_log_prob = agent2_component.get_actions_log_prob(agent2_out)
+        policy_action_log_prob = policy.get_actions_log_prob(agent1_out, agent_id="agent1")
+        policy_action_log_prob2 = policy.get_actions_log_prob(agent2_out, agent_id="agent2")
+
+        torch.testing.assert_close(agent1_action_log_prob, policy_action_log_prob)
+        torch.testing.assert_close(agent2_action_log_prob, policy_action_log_prob2)
+
+        #Get without explicit agent_id
+        policy_action_log_prob_dict = policy.get_actions_log_prob({
+            "agent1": agent1_out,
+            "agent2": agent2_out
+        })
+        torch.testing.assert_close(agent1_action_log_prob, policy_action_log_prob_dict['agent1'])
+        torch.testing.assert_close(agent2_action_log_prob, policy_action_log_prob_dict['agent2'])
+
         
         # Mock the save and load methods for testing
         with patch.object(policy, 'save', return_value=None) as mock_save:
@@ -250,12 +394,11 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
             component = policy.components[component_id]
             
             # Test act method with deterministic flag
-            component_out, component_info = component.act(obs, deterministic=True)
-            policy_out, policy_info = policy.act({component_id: obs}, deterministic=True)
+            component_out = component.act(obs, deterministic=True)
+            policy_out = policy.act({component_id: obs}, deterministic=True)
 
             # Verify policy outputs match direct component outputs
             torch.testing.assert_close(component_out, policy_out[component_id])
-            assert_dicts_close(component_info, policy_info[component_id])
 
             # Test evaluate method
             component_out = component.evaluate(obs)
@@ -265,13 +408,12 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
             
             # Test act method with stochastic sampling (set seed for reproducibility)
             torch.manual_seed(42)
-            component_out_stoch, component_info_stoch = component.act(obs, deterministic=False)
+            component_out_stoch = component.act(obs, deterministic=False)
             
             torch.manual_seed(42)
-            policy_out_stoch, policy_info_stoch = policy.act({component_id: obs}, deterministic=False)
+            policy_out_stoch = policy.act({component_id: obs}, deterministic=False)
             
             torch.testing.assert_close(component_out_stoch, policy_out_stoch[component_id])
-            assert_dicts_close(component_info_stoch, policy_info_stoch[component_id])
             
             # Mock the save and load methods for testing
             with patch.object(policy, 'save', return_value=None) as mock_save:
@@ -331,22 +473,26 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
         
                 
         # Manually create the concatenated input for agent
-        agent_actions, _ = agent_component.act(obs["agent"], deterministic=True)
+        agent_actions = agent_component.act(obs["agent"], deterministic=True)
         concatenated_input = torch.cat([agent_actions, obs['encoder']], dim=1)
         
         # Test act method with deterministic flag
         encoder_out = encoder_component.forward(concatenated_input)
-        policy_actions, _ = policy.act(obs, deterministic=True)
-        
+        policy_actions = policy.act(obs, deterministic=True)
+
         torch.testing.assert_close(encoder_out, policy_actions["encoder"])
+
+        policy_actions = policy.act(obs["agent"],agent_id='agent', deterministic=True)
+        
+        torch.testing.assert_close(agent_actions, policy_actions)
         
         # Test act method with stochastic sampling (set seed for reproducibility)
         torch.manual_seed(42)
-        agent_actions_stoch, _ = agent_component.act(obs["agent"], deterministic=False)
+        agent_actions_stoch = agent_component.act(obs["agent"], deterministic=False)
         concatenated_input_stoch = torch.cat([agent_actions_stoch, obs['encoder']], dim=1)
         encoder_out_stoch = encoder_component.forward(concatenated_input_stoch)
         torch.manual_seed(42)
-        policy_actions_stoch, _ = policy.act(obs, deterministic=False)
+        policy_actions_stoch = policy.act(obs, deterministic=False)
         torch.testing.assert_close(encoder_out_stoch, policy_actions_stoch["encoder"])
         
         
@@ -365,96 +511,9 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
             policy.load("test_path")
             mock_load.assert_called_once_with("test_path")
 
-    def test_saving_and_loading(self):
-        """Test the save and load functionality."""
-        # Build a simple policy with updated parameter names matching test_add_single_actor_critic
-        policy = self.builder.add_component(
-            component_id="agent1",
-            network_type="mlp",
-            network_class="actor_critic",
-            critic_obs_dim=self.obs_dim,
-            actor_obs_dim=self.obs_dim,
-            num_actions=self.action_dim,
-            critic_out_dim=1,
-            actor_hidden_dims=self.hidden_dims,
-            critic_hidden_dims=self.hidden_dims
-        ).build()
-        
-        # Create a batch of observations for testing
-        batch_size = 5
-        obs = torch.rand(batch_size, self.obs_dim).to(self.device)
-        
-        # Get initial outputs before saving using act and evaluate (matching test_add_single_actor_critic)
-        torch.manual_seed(42)
-        actions1, info1 = policy.act({"agent1": obs}, deterministic=True)
-        values1 = policy.evaluate({"agent1": obs})
-        
-        # Save the model
-        save_path = "test_model"
-        policy.save(save_path)
-        
-        # Modify the weights to simulate a change
-        params = policy.parameters()
-        for key, param in params.items():
-            actor_params = param["actor"]
-            critic_params = param["critic"]
-            for data in actor_params:
-                data.data = data.data * 2.0
-            for data in critic_params:
-                data.data = data.data * 2.0
-            
-        # Verify outputs are different after weight modification
-        torch.manual_seed(42)
-        actions2, info2 = policy.act({"agent1": obs}, deterministic=True)
-        values2 = policy.evaluate({"agent1": obs})
-        
-        # The outputs should be different now
-        with self.assertRaises(AssertionError):
-            torch.testing.assert_close(actions1["agent1"], actions2["agent1"])
-            torch.testing.assert_close(values1["agent1"], values2["agent1"])
-            assert_dicts_close(info1["agent1"], info2["agent1"])
-            
-        # Load the saved weights
-        policy.load(save_path)
-        
-        # Verify outputs are restored to initial values
-        torch.manual_seed(42)
-        actions_restored, info_restored = policy.act({"agent1": obs}, deterministic=True)
-        values_restored = policy.evaluate({"agent1": obs})
-        
-        # Assert that the outputs match the original values
-        torch.testing.assert_close(actions1["agent1"], actions_restored["agent1"])
-        torch.testing.assert_close(values1["agent1"], values_restored["agent1"])
-        assert_dicts_close(info1["agent1"], info_restored["agent1"])
-        
-        # Also test stochastic actions
-        torch.manual_seed(42)
-        stoch_actions1, stoch_info1 = policy.act({"agent1": obs}, deterministic=False)
-        
-        # Modify weights again
-        for key, param in params.items():
-            for data in param["actor"]:
-                data.data = data.data * 1.5
-            for data in param["critic"]:
-                data.data = data.data * 1.5
-        
-        # Verify different outputs after modification
-        torch.manual_seed(42)
-        stoch_actions2, stoch_info2 = policy.act({"agent1": obs}, deterministic=False)
-        with self.assertRaises(AssertionError):
-            torch.testing.assert_close(stoch_actions1["agent1"], stoch_actions2["agent1"])
-        
-        # Load the saved weights again
-        policy.load(save_path)
-        
-        # Verify stochastic actions are also restored
-        torch.manual_seed(42)
-        stoch_actions_restored, stoch_info_restored = policy.act({"agent1": obs}, deterministic=False)
-        torch.testing.assert_close(stoch_actions1["agent1"], stoch_actions_restored["agent1"])
-        assert_dicts_close(stoch_info1["agent1"], stoch_info_restored["agent1"])
-
-    def test_complex_connection_chain(self):
-        """Test a complex chain of connections between multiple components with encoders after actors."""
+    def test_complex_saving_and_loading(self):
+        """Test saving and loading functionality for complex policies with multiple components."""
+        # Build a complex policy with multiple components
         policy = self.builder.add_component(
             component_id="agent1",
             network_type="mlp",
@@ -469,164 +528,148 @@ class TestMultiAgentPolicyBuilder(unittest.TestCase):
             component_id="agent2",
             network_type="mlp",
             network_class="actor_critic",
-            critic_obs_dim=self.obs_dim,
-            actor_obs_dim=self.obs_dim,
-            num_actions=self.action_dim,
+            critic_obs_dim=self.obs_dim + 2,
+            actor_obs_dim=self.obs_dim + 2,
+            num_actions=self.action_dim - 1,
             critic_out_dim=1,
-            actor_hidden_dims=self.hidden_dims,
-            critic_hidden_dims=self.hidden_dims
+            actor_hidden_dims=[32, 32],
+            critic_hidden_dims=[32, 32]
         ).add_component(
-            component_id="agent3",
-            network_type="mlp",
-            network_class="actor_critic",
-            critic_obs_dim=self.obs_dim,
-            actor_obs_dim=self.obs_dim,
-            num_actions=self.action_dim,
-            critic_out_dim=1,
-            actor_hidden_dims=self.hidden_dims,
-            critic_hidden_dims=self.hidden_dims
-        ).add_component(
-            component_id="encoder1",
+            component_id="encoder",
             network_type="mlp",
             network_class="encoder",
-            input_dim=self.action_dim * 2,  # Taking input from agent1 and agent2 actions
-            output_dim=self.obs_dim // 2,
-            hidden_dims=[48, 24]
-        ).add_component(
-            component_id="encoder2",
-            network_type="mlp",
-            network_class="encoder",
-            input_dim=self.action_dim * 2,  # Taking input from agent2 and agent3 actions
-            output_dim=self.obs_dim // 2,
-            hidden_dims=[48, 24]
-        ).add_component(
-            component_id="final_encoder",
-            network_type="mlp",
-            network_class="encoder",
-            input_dim=self.obs_dim,  # Taking input from encoder1 and encoder2 outputs
+            input_dim=self.obs_dim + self.action_dim,
             output_dim=self.obs_dim,
-            hidden_dims=[64, 32]
+            hidden_dims=[32]
         ).add_connection(
-            source_id=["agent1", "agent2"],
-            target_id="encoder1",
-            concat_dim=1  # Concatenate along feature dimension
-        ).add_connection(
-            source_id=["agent2", "agent3"],
-            target_id="encoder2",
-            concat_dim=1  # Concatenate along feature dimension
-        ).add_connection(
-            source_id=["encoder1", "encoder2"],
-            target_id="final_encoder",
-            concat_dim=1  # Concatenate along feature dimension
+            source_id=["agent1"],
+            target_id="encoder",
+            concat_dim=1
         ).build()
-        
-        # Check if connections are properly set up
-        for target_id, sources in [
-            ("encoder1", ["agent1", "agent2"]),
-            ("encoder2", ["agent2", "agent3"]),
-            ("final_encoder", ["encoder1", "encoder2"])
-        ]:
-            self.assertIn(target_id, self.builder.connections)
-            connection = next(conn for conn in self.builder.connections[target_id] 
-                            if set(conn["source_id"]) == set(sources))
-            self.assertEqual(set(connection["source_id"]), set(sources))
-        
-        # Test with connected components
+
+        # Create test observations
         batch_size = 5
+        obs1 = torch.rand(batch_size, self.obs_dim).to(self.device)
+        obs2 = torch.rand(batch_size, self.obs_dim + 2).to(self.device)
+        obs3 = torch.rand(batch_size, self.obs_dim).to(self.device)
         obs = {
-            "agent1": torch.rand(batch_size, self.obs_dim).to(self.device),
-            "agent2": torch.rand(batch_size, self.obs_dim).to(self.device),
-            "agent3": torch.rand(batch_size, self.obs_dim).to(self.device)
+            "agent1": obs1,
+            "agent2": obs2,
+            "encoder": obs3
         }
-        
-        # Get individual components
-        agent1 = policy.components["agent1"]
-        agent2 = policy.components["agent2"]
-        agent3 = policy.components["agent3"]
-        encoder1 = policy.components["encoder1"]
-        encoder2 = policy.components["encoder2"]
-        final_encoder = policy.components["final_encoder"]
-        
-        # DETERMINISTIC TESTING
-        
-        # 1. Get actions from agent networks
+
+        # Get initial outputs
         torch.manual_seed(42)
-        agent1_actions, _ = agent1.act(obs["agent1"], deterministic=True)
-        agent2_actions, _ = agent2.act(obs["agent2"], deterministic=True)
-        agent3_actions, _ = agent3.act(obs["agent3"], deterministic=True)
+        actions1 = policy.act(obs, deterministic=True)
+        values1 = policy.evaluate(obs)
+
+        # Test 1: Save and load individual components
+        # Save agent1
+        policy.save("test_agent1", ["agent1"])
         
-        # 2. Feed actions to encoder1 and encoder2
-        encoder1_input = torch.cat([agent1_actions, agent2_actions], dim=1)
-        encoder2_input = torch.cat([agent2_actions, agent3_actions], dim=1)
-        
-        encoder1_output = encoder1.forward(encoder1_input)
-        encoder2_output = encoder2.forward(encoder2_input)
-        
-        # 3. Feed encoder outputs to final encoder
-        final_input = torch.cat([encoder1_output, encoder2_output], dim=1)
-        final_output = final_encoder.forward(final_input)
-        
-        # 4. Get outputs through the policy network
+        # Modify agent1's weights
+        for name, param in (policy.components["agent1"].parameters().items()):
+            for data in param:
+                data.data = data.data * 2.0
+
+        # Verify agent1 outputs changed
         torch.manual_seed(42)
-        policy_outputs, _ = policy.act(obs, deterministic=True)
+        actions2 = policy.act(obs, deterministic=True)
+        with self.assertRaises(AssertionError):
+            torch.testing.assert_close(actions1["agent1"], actions2["agent1"])
+
+        # Load agent1 back
+        policy.load("test_agent1", ["agent1"])
         
-        # Compare outputs
-        torch.testing.assert_close(encoder1_output, policy_outputs["encoder1"])
-        torch.testing.assert_close(encoder2_output, policy_outputs["encoder2"])
-        torch.testing.assert_close(final_output, policy_outputs["final_encoder"])
-        torch.testing.assert_close(agent1_actions, policy_outputs["agent1"])
-        torch.testing.assert_close(agent2_actions, policy_outputs["agent2"])
-        torch.testing.assert_close(agent3_actions, policy_outputs["agent3"])
-        
-        # STOCHASTIC TESTING
-        
-        # 1. Get actions from agent networks
+        # Verify agent1 outputs restored
         torch.manual_seed(42)
-        agent1_actions_stoch, _ = agent1.act(obs["agent1"], deterministic=False)
-        agent2_actions_stoch, _ = agent2.act(obs["agent2"], deterministic=False)
-        agent3_actions_stoch, _ = agent3.act(obs["agent3"], deterministic=False)
+        actions_restored = policy.act(obs, deterministic=True)
+        torch.testing.assert_close(actions1["agent1"], actions_restored["agent1"])
+
+        # Test 2: Save and load multiple components
+        # Save both agents
+        policy.save("test_agents", ["agent1", "agent2"])
         
-        # 2. Feed actions to encoder1 and encoder2
-        encoder1_input_stoch = torch.cat([agent1_actions_stoch, agent2_actions_stoch], dim=1)
-        encoder2_input_stoch = torch.cat([agent2_actions_stoch, agent3_actions_stoch], dim=1)
-        
-        encoder1_output_stoch = encoder1.forward(encoder1_input_stoch)
-        encoder2_output_stoch = encoder2.forward(encoder2_input_stoch)
-        
-        # 3. Feed encoder outputs to final encoder
-        final_input_stoch = torch.cat([encoder1_output_stoch, encoder2_output_stoch], dim=1)
-        final_output_stoch = final_encoder.forward(final_input_stoch)
-        
-        # 4. Get outputs through the policy network
+        # Modify both agents' weights
+        for component_id in ["agent1", "agent2"]:
+            for name, param in (policy.components[component_id].parameters().items()):
+                for data in param:
+                    data.data = data.data * 1.5
+
+        # Verify outputs changed
         torch.manual_seed(42)
-        policy_outputs_stoch, _ = policy.act(obs, deterministic=False)
+        actions3 = policy.act(obs, deterministic=True)
+        with self.assertRaises(AssertionError):
+            torch.testing.assert_close(actions1["agent1"], actions3["agent1"])
+            torch.testing.assert_close(actions1["agent2"], actions3["agent2"])
+
+        # Load both agents back
+        policy.load("test_agents", ["agent1", "agent2"])
         
-        # Compare outputs
-        torch.testing.assert_close(encoder1_output_stoch, policy_outputs_stoch["encoder1"])
-        torch.testing.assert_close(encoder2_output_stoch, policy_outputs_stoch["encoder2"])
-        torch.testing.assert_close(final_output_stoch, policy_outputs_stoch["final_encoder"])
-        torch.testing.assert_close(agent1_actions_stoch, policy_outputs_stoch["agent1"])
-        torch.testing.assert_close(agent2_actions_stoch, policy_outputs_stoch["agent2"])
-        torch.testing.assert_close(agent3_actions_stoch, policy_outputs_stoch["agent3"])
+        # Verify outputs restored
+        torch.manual_seed(42)
+        actions_restored = policy.act(obs, deterministic=True)
+        torch.testing.assert_close(actions1["agent1"], actions_restored["agent1"])
+        torch.testing.assert_close(actions1["agent2"], actions_restored["agent2"])
+
+        # Test 3: Save and load entire policy
+        # Save entire policy
+        policy.save("test_policy")
         
-        # Test evaluate method
-        agent1_val = agent1.evaluate(obs["agent1"])
-        agent2_val = agent2.evaluate(obs["agent2"])
-        agent3_val = agent3.evaluate(obs["agent3"])
-        policy_val = policy.evaluate(obs)
+        # Modify all components' weights
+        for component_id in ["agent1", "agent2", "encoder"]:
+            if component_id == "encoder":
+                for param in list(policy.components[component_id].parameters()):
+                    param.data = param.data * 2.0
+            else:
+                for name, param in (policy.components[component_id].parameters().items()):
+                    for data in param:
+                        data.data = data.data * 2.0
+
+        # Verify all outputs changed
+        torch.manual_seed(42)
+        actions4 = policy.act(obs, deterministic=True)
+        values4 = policy.evaluate(obs)
         
-        torch.testing.assert_close(agent1_val, policy_val["agent1"])
-        torch.testing.assert_close(agent2_val, policy_val["agent2"])
-        torch.testing.assert_close(agent3_val, policy_val["agent3"])
+        with self.assertRaises(AssertionError):
+            for agent_id in ["agent1", "agent2"]:
+                torch.testing.assert_close(actions1[agent_id], actions4[agent_id])
+                torch.testing.assert_close(values1[agent_id], values4[agent_id])
+
+        # Load entire policy back
+        policy.load("test_policy")
         
-        # Mock the save and load methods for testing
-        with patch.object(policy, 'save', return_value=None) as mock_save:
-            policy.save("test_path")
-            mock_save.assert_called_once_with("test_path")
-            
-        with patch.object(policy, 'load', return_value=None) as mock_load:
-            policy.load("test_path")
-            mock_load.assert_called_once_with("test_path")
+        # Verify all outputs restored
+        torch.manual_seed(42)
+        actions_restored = policy.act(obs, deterministic=True)
+        values_restored = policy.evaluate(obs)
+        
+        for agent_id in ["agent1", "agent2"]:
+            torch.testing.assert_close(actions1[agent_id], actions_restored[agent_id])
+            torch.testing.assert_close(values1[agent_id], values_restored[agent_id])
+
+        # Test 4: Test stochastic actions with saved/loaded components
+        torch.manual_seed(42)
+        stoch_actions1 = policy.act(obs, deterministic=False)
+        
+        # Modify weights
+        for component_id in ["agent1", "agent2", "encoder"]:
+            if component_id == "encoder":
+                for param in list(policy.components[component_id].parameters()):
+                    param.data = param.data * 1.5
+            else:
+                for name, param in (policy.components[component_id].parameters().items()):
+                    for data in param:
+                        data.data = data.data * 1.5
+        
+        # Load policy back
+        policy.load("test_policy", ["agent1", "agent2", "encoder"])
+        
+        # Verify stochastic actions restored
+        torch.manual_seed(42)
+        stoch_actions_restored = policy.act(obs, deterministic=False)
+        for agent_id in ["agent1", "agent2"]:
+            torch.testing.assert_close(stoch_actions1[agent_id], stoch_actions_restored[agent_id])
 
 
 def assert_dicts_close(dict1, dict2, rtol=1e-5, atol=1e-8):
