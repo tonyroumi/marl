@@ -54,8 +54,6 @@ class PPO(BaseAlgorithm):
     self.desired_kl = {agent_id: params["desired_kl"] for agent_id, params in agent_hyperparams.items()}
     self.schedule = {agent_id: params["schedule"] for agent_id, params in agent_hyperparams.items()}
     self.learning_rate = {agent_id: params["learning_rate"] for agent_id, params in agent_hyperparams.items()}
-    self.num_transitions_per_env = {agent_id: params["num_transitions_per_env"] for agent_id, params in agent_hyperparams.items()}
-    self.num_steps_per_env = {agent_id: params["num_steps_per_env"] for agent_id, params in agent_hyperparams.items()}
     self.total_timesteps = {agent_id: params["total_timesteps"] for agent_id, params in agent_hyperparams.items()}
 
 
@@ -67,7 +65,7 @@ class PPO(BaseAlgorithm):
         lr=self.learning_rate[agent_id]
       )
 
-  def _init_storage(self, num_envs: int, agent_id: Optional[str] = None):
+  def _init_storage(self, num_envs: int, num_transitions_per_env: int, agent_id: Optional[str] = None):
     """
     Initialize storage for agents.
     
@@ -78,17 +76,17 @@ class PPO(BaseAlgorithm):
     if agent_id is None:
         # Initialize storage for all agents
         for agent in self.agents:
-            self._init_storage_single_agent(num_envs, agent)
+            self._init_storage_single_agent(num_envs, num_transitions_per_env, agent)
     else:
         # Initialize storage for single agent
-        self._init_storage_single_agent(num_envs, agent_id)
+        self._init_storage_single_agent(num_envs, num_transitions_per_env, agent_id)
 
-  def _init_storage_single_agent(self, num_envs: int, agent_id: str):
+  def _init_storage_single_agent(self, num_envs: int, num_transitions_per_env: int, agent_id: str):
       """Initialize storage for a single agent"""
       if agent_id in self.agents:
           self.storage[agent_id] = RolloutStorage(
               num_envs=num_envs,
-              num_transitions_per_env=self.num_transitions_per_env[agent_id],
+              num_transitions_per_env=num_transitions_per_env,
               actor_obs_dim=self.policy.components[agent_id].network_kwargs["actor_obs_dim"],
               critic_obs_dim=self.policy.components[agent_id].network_kwargs["critic_obs_dim"],
               action_dim=self.policy.components[agent_id].network_kwargs["num_actions"],
@@ -202,7 +200,7 @@ class PPO(BaseAlgorithm):
 
   def _compute_returns_single_agent(self, last_critic_obs, agent_id: str) -> None:
       """Compute returns for a single agent"""
-      last_values = self.policy.evaluate(last_critic_obs.clone(), agent_id=agent_id).detach()
+      last_values = self.policy.evaluate(last_critic_obs, agent_id=agent_id).detach()
       self.storage[agent_id].compute_returns(
           last_values,
           self.gamma[agent_id],

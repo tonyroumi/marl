@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple, Iterator, Union
+from typing import List, Dict, Any, Tuple, Iterator
 
 import torch.nn as nn
 import torch
@@ -12,12 +12,12 @@ class MLPActorNetwork(BaseActorNetwork):
     """MLP Actor Network.
     
     Args:
-        observation_dim: Dimension of observation space
+        actor_obs_dim: Dimension of observation space
         num_actions: Dimension of action space
-        hidden_dims: Dimensions of hidden layers
+        actor_hidden_dims: Dimensions of hidden layers
         activation: Activation function to use
         init_noise_std: Initial standard deviation of noise
-        noise_std_type: Type of noise standard deviation
+        noise_std_type: Type of noise standard deviation, either "scalar" or "log"
     """
     
     def __init__(
@@ -180,7 +180,7 @@ class MLPCriticNetwork(BaseCriticNetwork):
     def evaluate(
         self,
         obs: torch.Tensor,
-        ) -> Dict[str, torch.Tensor]:
+        ) -> torch.Tensor:
         """
         Forward pass through the critic network.
         
@@ -188,7 +188,7 @@ class MLPCriticNetwork(BaseCriticNetwork):
             obs: Agent observations
             
         Returns:
-            Dictionary containing value estimates
+            Tensor of estimated values
         """
         return self.critic(obs)
     
@@ -239,21 +239,21 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         self,
         obs: torch.Tensor,
         deterministic: bool = False
-        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        ) -> Dict[str, torch.Tensor]:
         """
         Forward pass through the actor-critic network.
         
         Args:
             obs: Agent observations
+            deterministic: If True, return mean action instead of sampling
             
         Returns:
-            Tuple containing:
+            Dictionary containing:
                 - Dictionary containing both actor outputs (distribution parameters) 
                 and critic outputs (value estimates)
-                - Dictionary with additional information (log_prob, mean, std, entropy)
         """
         # Actor outputs
-        actor_outputs, actor_info = self.actor.act(obs, deterministic)
+        actor_outputs = self.actor.act(obs, deterministic)
         
         # Critic output
         critic_outputs = self.critic.evaluate(obs)
@@ -263,13 +263,13 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
             "value": critic_outputs
         }
         
-        return result, actor_info
+        return result
 
     def act(
         self,
         obs: torch.Tensor,
         deterministic: bool = False
-        ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        ) -> torch.Tensor:
         """
         Get actions from the actor component.
         
@@ -278,9 +278,8 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
             deterministic: If True, return mean action instead of sampling
             
         Returns:
-            Tuple containing:
+                Tuple containing:
                 - actions: The selected actions
-                - info: Dictionary with additional information (log_prob, mean, std, entropy)
         """
         return self.actor.act(obs, deterministic)
     

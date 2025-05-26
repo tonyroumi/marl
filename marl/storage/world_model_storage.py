@@ -3,10 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class WorldModelTransition:
-    """Container for world model training data.
-    
-    Stores state-action-next_state-reward-done tuples for dynamics learning.
-    """
+    """Container for world model training data."""
     states: torch.Tensor = None
     actions: torch.Tensor = None
     next_states: torch.Tensor = None
@@ -14,7 +11,7 @@ class WorldModelTransition:
     dones: torch.Tensor = None
     
 class WorldModelStorage:
-    """Dedicated buffer for world model training data with efficient storage and sampling."""
+    """Dedicated buffer for world model training data."""
     
     def __init__(self, capacity: int, state_dim: int, action_dim: int, device: torch.device):
         self.capacity = capacity
@@ -22,7 +19,6 @@ class WorldModelStorage:
         self.state_dim = state_dim
         self.action_dim = action_dim
         
-        # Circular buffer for efficient memory usage
         self.states = torch.zeros(capacity, state_dim, device=device)
         self.actions = torch.zeros(capacity, action_dim, device=device)
         self.next_states = torch.zeros(capacity, state_dim, device=device)

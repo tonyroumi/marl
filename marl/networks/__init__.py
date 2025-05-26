@@ -6,5 +6,5 @@ __all__ = [
     "MLPActorNetwork", 
     "MLPActorCriticNetwork", 
     "MLPEncoderNetwork",
-    "EmpericalNormalization"
+    "EmpiricalNormalization"
     ]

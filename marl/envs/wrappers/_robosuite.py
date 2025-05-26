@@ -9,6 +9,8 @@ class TorchObsWrapper(Wrapper):
     
     def step(self, action):
         obs, reward, done, info = super().step(action)
+        if done:
+            obs = self.env.reset()
         return self._to_tensor(obs), reward, done, info
     
     def _get_observations(self):

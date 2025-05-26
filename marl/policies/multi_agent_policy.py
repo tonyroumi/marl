@@ -1,6 +1,7 @@
 import os
 import torch
-from typing import Dict, Any, List, Optional, Union
+from torch.nn import Parameter
+from typing import Dict, Any, List, Optional, Union, Iterator
 
 from marl.policies import BasePolicy
 from marl.policies.component import Component
@@ -17,7 +18,6 @@ class MultiAgentPolicy(BasePolicy):
 
     
     Raises:
-        ValueError: If component dependencies form cycles during validation.
         ValueError: If connection references non-existent components during validation.
         ValueError: If attempting to get actions from components without actor networks.
         ValueError: If attempting to evaluate components without critic networks.
@@ -330,7 +330,7 @@ class MultiAgentPolicy(BasePolicy):
     def parameters(
         self, 
         agent_id: Optional[str] = None
-        ) -> Union[Dict[str, Dict[str, List[torch.Tensor]]], Dict[str, List[torch.Tensor]]]:
+        ) -> Union[Dict[str, Iterator[Parameter]], Iterator[Parameter]]:
         """Get all parameters of the policy.
         
         Args:
@@ -396,6 +396,16 @@ class MultiAgentPolicy(BasePolicy):
                     raise FileNotFoundError(f"Component file not found at {component_path}")
                 component.load(component_path)
             print(f"Loaded all components from {path}")
+    
+    def train(self):
+        """Set the policy to training mode"""
+        for component in self.components.values():
+            component.train()
+
+    def eval(self):
+        """Set the policy to evaluation mode"""
+        for component in self.components.values():
+            component.eval()
 
     def _determine_execution_order(self):
         """Determine component execution order based on dependencies

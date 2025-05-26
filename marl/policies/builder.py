@@ -68,6 +68,9 @@ class MultiAgentPolicyBuilder:
         Args:
             component_id: The ID of the component to load
             path: Path to the saved model weights
+        
+        Raises:
+            ValueError: If the component is not found
         """
         if component_id not in self.components:
             raise ValueError(f"Component {component_id} not found")
@@ -82,6 +85,9 @@ class MultiAgentPolicyBuilder:
         
         Args:
             component_id: The ID of the component to freeze
+
+        Raises:
+            ValueError: If the component is not found
         """
         if component_id not in self.components:
             raise ValueError(f"Component {component_id} not found")
@@ -96,6 +102,9 @@ class MultiAgentPolicyBuilder:
         
         Args:
             component_id: The ID of the component to unfreeze
+
+        Raises:
+            ValueError: If the component is not found
         """
         if component_id not in self.components:
             raise ValueError(f"Component {component_id} not found")
@@ -111,6 +120,9 @@ class MultiAgentPolicyBuilder:
         Args:
             component_id: The ID of the component
             layer_names: List of layer names to freeze
+
+        Raises:
+            ValueError: If the component is not found
         """
         if component_id not in self.components:
             raise ValueError(f"Component {component_id} not found")
@@ -124,6 +136,7 @@ class MultiAgentPolicyBuilder:
         
         Args:
             component_ids: List of component IDs to freeze
+
         """
         for component_id in component_ids:
             self.freeze_component(component_id)

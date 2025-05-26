@@ -44,7 +44,7 @@ class BaseActorNetwork(BaseNetwork):
         
         Args:
             obs: Tensor of observations
-            deterministic: If True, use deterministic action selection
+            **kwargs: Any (e.g. deterministic)
             
         Returns:
             actions: Tensor of actions
@@ -64,8 +64,7 @@ class BaseCriticNetwork(BaseNetwork):
             obs: Tensor of observations
             
         Returns:
-            Tuple containing:
-                - values: Tensor of estimated values
+            values: Tensor of estimated values
         """
         pass
 
@@ -78,7 +77,7 @@ class BaseActorCriticNetwork(BaseNetwork):
         self, 
         obs: torch.Tensor,
         **kwargs: Any
-        ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        ) -> torch.Tensor:
         """
         Compute actions from observations.
         
@@ -109,7 +108,7 @@ class BaseActorCriticNetwork(BaseNetwork):
         self,
         obs: torch.Tensor,
         **kwargs: Any
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
+        ) -> Dict[str, torch.Tensor]:
         """
         Compute actions and values from observations.
         

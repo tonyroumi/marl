@@ -5,7 +5,7 @@ from marl.storage.world_model_storage import WorldModelStorage
 
 @dataclass
 class Transition:
-    """Container for a single environment transition in reinforcement learning.
+    """Container for a single environment transition.
     
     Stores all necessary information for policy gradient methods including
     observations, actions, rewards, and policy statistics.
@@ -23,7 +23,6 @@ class Transition:
 class RolloutStorage:
     """Storage buffer for collecting and processing rollout data.
     
-    Enhanced with world model support for learning environment dynamics.
     This class manages trajectories from multiple parallel environments, computes
     advantages using GAE (Generalized Advantage Estimation), and provides mini-batch
     sampling for policy optimization.
@@ -65,13 +64,15 @@ class RolloutStorage:
             self.actor_obs_dim,
             device=self.device,
         )
-            
-        self.critic_observations = torch.zeros(
-            num_transitions_per_env,
-            num_envs,
-            self.critic_obs_dim,
-            device=self.device,
-        )
+        if self.critic_obs_dim is not None:
+            self.critic_observations = torch.zeros(
+                num_transitions_per_env,
+                num_envs,
+                self.critic_obs_dim,
+                device=self.device,
+            )
+        else:
+            self.critic_observations = None
 
         self.rewards = torch.zeros(
             num_transitions_per_env,
@@ -92,7 +93,7 @@ class RolloutStorage:
             num_envs,
             1,
             device=self.device,
-        )
+        ).byte()
 
         # Value function and policy statistics
         self.values = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
@@ -261,7 +262,7 @@ class RolloutStorage:
 
                 # Create mini-batch by indexing with random indices
                 obs_batch = observations[batch_idx]
-                critic_obs_batch = critic_observations[batch_idx] if critic_observations is not None else None
+                critic_obs_batch = critic_observations[batch_idx] 
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]

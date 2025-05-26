@@ -1,6 +1,6 @@
 import os
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Iterator
 
 import torch
 from torch.nn import Parameter
@@ -142,7 +142,15 @@ class Component:
             'is_frozen': self.is_frozen,
             'frozen_percentage': (total_params - trainable_params) / total_params * 100 if total_params > 0 else 0
         }
-
+    
+    def train(self):
+        """Set the policy to training mode"""
+        self.network.train()
+    
+    def eval(self):
+        """Set the policy to evaluation mode"""
+        self.network.eval()
+        
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
         Perform a forward pass through the network, producing raw network outputs.
@@ -158,7 +166,7 @@ class Component:
     
     def act(self, obs: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         """
-        Get actions from the policy, either sampled (for exploration) or deterministic (for evaluation).
+        Get actions from the policy.
         
         Args:
             obs: Agent observations
@@ -166,6 +174,9 @@ class Component:
             
         Returns:
             actions: The selected actions 
+
+        Raises:
+            ValueError: If attempting to call act() on a critic-only network.
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
             actions = self.network.act(obs, **kwargs)
@@ -184,6 +195,9 @@ class Component:
             
         Returns:
             values: Value estimates
+
+        Raises:
+            ValueError: If attempting to call evaluate() on an actor-only network.
         """
         # Forward through network
         if self.network_class == "critic" or self.network_class == "actor_critic":
@@ -202,6 +216,9 @@ class Component:
             
         Returns:
             log_prob: The log probability of the actions
+        
+        Raises:
+            ValueError: If attempting to call get_actions_log_prob() on a critic-only network.
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
             return self.network.get_actions_log_prob(actions)
@@ -214,6 +231,9 @@ class Component:
 
         Returns:
             mean: The mean of the action distribution
+
+        Raises:
+            ValueError: If attempting to call get_action_mean() on a critic-only network.
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
             return self.network.action_mean
@@ -226,6 +246,9 @@ class Component:
 
         Returns:
             std: The standard deviation of the action distribution
+        
+        Raises:
+            ValueError: If attempting to call get_action_std() on a critic-only network.
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
             return self.network.action_std
@@ -238,30 +261,33 @@ class Component:
 
         Returns:
             entropy: The entropy of the action distribution
+
+        Raises:
+            ValueError: If attempting to call get_entropy() on a critic-only network.
         """
         if self.network_class == "actor" or self.network_class == "actor_critic":
             return self.network.entropy
         else:
             raise ValueError("Cannot get entropy from critic-only network")
     
-    def parameters(self) -> Dict[str, List[Parameter]]:
+    def parameters(self) -> Iterator[Parameter]:
         """ Get policy parameters """
         return self.network.parameters()
     
-    def state_dict(self):
+    def state_dict(self) -> Dict[str, Any]:
         """ Get the policy state dict for saving."""
         return self.network.state_dict()
     
-    def load_state_dict(self, state_dict):
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         """Load policy state dict."""
         self.network.load_state_dict(state_dict)
         
-    def save(self, path):
+    def save(self, path: str) -> None:
         """Save policy to disk."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
         torch.save(self.network.state_dict(), path)
     
-    def load(self, path):
+    def load(self, path: str) -> None:
         """Load policy from disk."""
         checkpoint = torch.load(path, map_location=self.device)
         self.network.load_state_dict(checkpoint)
