@@ -7,7 +7,7 @@ from marl.utils.config_utils import build_policy_from_config
 def verify_policy_connections(cfg: DictConfig):
     """Verify connections between components in a policy built with Hydra."""
 
-    policy_cfg = OmegaConf.to_container(cfg.policies, resolve=True)
+    policy_cfg = OmegaConf.to_container(cfg.policy, resolve=True)
     
     policy = build_policy_from_config(policy_cfg)
     
@@ -21,23 +21,23 @@ def verify_policy_connections(cfg: DictConfig):
     action_dim = 2  # Adjust based on your actual config
     batch_size = 5
     
-    if "encoder" in policy.components and "agent" in policy.components:
+    if "encoder" in policy.components and "agent_0" in policy.components:
         encoder_obs = torch.rand(batch_size, obs_dim).to(device)
         agent_obs = torch.rand(batch_size, obs_dim).to(device)
         
         obs = {
             "encoder": encoder_obs,
-            "agent": agent_obs
+            "agent_0": agent_obs
         }
         
         # Get individual components
         encoder_component = policy.components["encoder"]
-        agent_component = policy.components["agent"]
+        agent_component = policy.components["agent_0"]
         
         print(f"\nTesting component interaction:")
         
         # Manually create the concatenated input for encoder
-        agent_actions, _ = agent_component.act(obs["agent"], deterministic=True)
+        agent_actions = agent_component.act(obs["agent_0"], deterministic=True)
         print(f"Agent actions shape: {agent_actions.shape}")
         
         concatenated_input = torch.cat([agent_actions, obs['encoder']], dim=1)
@@ -48,7 +48,7 @@ def verify_policy_connections(cfg: DictConfig):
         print(f"Encoder output shape: {encoder_out.shape}")
         
         # Test entire policy forward
-        policy_actions, _ = policy.act(obs, deterministic=True)
+        policy_actions = policy.act(obs, deterministic=True, return_all=True)
         print(f"Policy actions: {policy_actions.keys()}")
         print(f"Policy encoder output shape: {policy_actions['encoder'].shape}")
         
@@ -57,12 +57,12 @@ def verify_policy_connections(cfg: DictConfig):
         print(f"Outputs match: {outputs_match}")
         
         # Test evaluate method
-        agent_val = agent_component.evaluate(obs["agent"])
+        agent_val = agent_component.evaluate(obs["agent_0"])
         policy_val = policy.evaluate(obs)
         
         print(f"Agent value shape: {agent_val.shape}")
-        print(f"Policy agent value shape: {policy_val['agent'].shape}")
-        values_match = torch.allclose(agent_val, policy_val["agent"])
+        print(f"Policy agent value shape: {policy_val['agent_0'].shape}")
+        values_match = torch.allclose(agent_val, policy_val["agent_0"])
         print(f"Values match: {values_match}")
     else:
         print(f"Warning: Expected 'encoder' and 'agent' components not found in policy")

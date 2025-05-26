@@ -1,0 +1,15 @@
+agent_0:
+  actor_observations: [
+    robot0_proprio-state, #(43,)
+    robot1_proprio-state, #(43,)
+  ]
+
+  critic_observations: [
+    robot0_proprio-state, #(43,)
+    robot1_proprio-state, #(43,)
+    object-state #(41,)
+  ]
+
+kwargs: 
+  normalize_observations: true
+  preprocess_observations: true

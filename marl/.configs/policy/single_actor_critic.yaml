@@ -1,0 +1,10 @@
+components:  
+  agent_0:
+    network_type: "mlp"
+    network_class: "actor_critic"
+    critic_obs_dim: 127
+    actor_obs_dim: 86
+    num_actions: 14
+    critic_out_dim: 1
+    actor_hidden_dims: [512,512]
+    critic_hidden_dims: [512,512]

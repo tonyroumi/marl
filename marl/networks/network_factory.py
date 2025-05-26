@@ -4,7 +4,12 @@ from marl.networks.base_networks import BaseActorNetwork, BaseCriticNetwork, Bas
 from marl.networks.mlp_networks import MLPActorNetwork, MLPCriticNetwork, MLPActorCriticNetwork, MLPEncoderNetwork
 
 class NetworkFactory:
-    """Factory class for creating different types of networks."""
+    """Factory class for creating different types of networks.
+    
+    Raises:
+        ValueError: If network_type is not implemented. (only mlp is implemented)
+    
+    """
 
     @staticmethod
     def create_actor_network(network_type: str, 
@@ -19,10 +24,7 @@ class NetworkFactory:
             network_type: Type of network to create ("mlp", "cnn")
             actor_obs_dim: Dimension of observation space for actor network
             num_actions: Dimension of action space
-            : Additional arguments for network construction
-
-        Raises:
-            ValueError: If network_type is not "mlp"
+            **network_kwargs: Additional arguments for network construction
 
         Returns:
             An instance of the actor network
@@ -50,10 +52,7 @@ class NetworkFactory:
             network_type: Type of network to create ("mlp", "cnn")
             critic_obs_dim: Dimension of observation space for critic network
             critic_out_dim: Dimension of critic output
-            : Additional arguments for network construction
-        
-        Raises:
-            ValueError: If network_type is not "mlp"
+            **network_kwargs: Additional arguments for network construction
             
         Returns:
             An instance of the critic network
@@ -87,10 +86,7 @@ class NetworkFactory:
             critic_obs_dim: Dimension of observation space for critic network
             num_actions: Dimension of action space
             critic_out_dim: Dimension of critic output
-            : Additional arguments for network construction
-        
-        Raises:
-            ValueError: If network_type is not "mlp"
+            **network_kwargs: Additional arguments for network construction
             
         Returns:
             An instance of the actor-critic network
@@ -122,10 +118,7 @@ class NetworkFactory:
             network_type: Type of network to create ("mlp", "cnn")
             input_dim: Dimension of input space
             output_dim: Dimension of output space
-            : Additional arguments for network construction
-            
-        Raises:
-            ValueError: If network_type is not "mlp"
+            **network_kwargs: Additional arguments for network construction
             
         Returns:
             An instance of the encoder network

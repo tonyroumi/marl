@@ -9,7 +9,16 @@ from marl.networks.base_networks import BaseActorNetwork, BaseCriticNetwork, Bas
 from marl.utils.utils import resolve_nn_activation
 
 class MLPActorNetwork(BaseActorNetwork):
-    """MLP Actor Network."""
+    """MLP Actor Network.
+    
+    Args:
+        actor_obs_dim: Dimension of observation space
+        num_actions: Dimension of action space
+        actor_hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+        init_noise_std: Initial standard deviation of noise
+        noise_std_type: Type of noise standard deviation, either "scalar" or "log"
+    """
     
     def __init__(
         self, 
@@ -20,17 +29,6 @@ class MLPActorNetwork(BaseActorNetwork):
         init_noise_std = 1.0,
         noise_std_type="scalar"
         ):
-        """
-        Initalize MLP actor network.
-
-        Args:
-            observation_dim: Dimension of observation space
-            num_actions: Dimension of action space
-            hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-            init_noise_std: Initial standard deviation of noise
-            noise_std_type: Type of noise standard deviation
-        """
         super().__init__()
         
         self.actor_obs_dim = actor_obs_dim
@@ -85,22 +83,15 @@ class MLPActorNetwork(BaseActorNetwork):
             deterministic: If True, return mean action instead of sampling
 
         Returns:
-            Tuple containing:
-                - actions: The selected actions
-                - info: Dictionary with additional information (log_prob, mean, std, entropy)
+            actions: The selected actions
         """
-        info = {}
         self.update_distribution(obs)
         if deterministic:
             action = self.distribution.mean
         else:
             action = self.distribution.sample()
-        info["log_prob"] = self.get_actions_log_prob(action)
-        info["action_mean"] = self.action_mean
-        info["action_std"] = self.action_std
-        info["entropy"] = self.entropy
 
-        return action, info
+        return action
     
     def get_actions_log_prob(self, actions: torch.Tensor) -> torch.Tensor:
         """
@@ -147,7 +138,15 @@ class MLPActorNetwork(BaseActorNetwork):
                     
             
 class MLPCriticNetwork(BaseCriticNetwork):
-    """MLP-based Critic Network."""
+    """MLP-based Critic Network.
+
+    Args:
+        critic_obs_dim: Dimension of observation space
+        critic_output_dim: Dimension of critic output
+        critic_hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+        
+    """
     
     def __init__(
         self, 
@@ -156,15 +155,6 @@ class MLPCriticNetwork(BaseCriticNetwork):
         critic_hidden_dims: List[int] = [256, 256],
         activation: str = "relu",
         ):
-        """
-        Initialize MLP critic network.
-
-        Args:
-            observation_dim: Dimension of observation space
-            critic_output_dim: Dimension of critic output
-            hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-        """
         super().__init__()
 
         self.critic_obs_dim = critic_obs_dim
@@ -190,16 +180,15 @@ class MLPCriticNetwork(BaseCriticNetwork):
     def evaluate(
         self,
         obs: torch.Tensor,
-        ) -> Dict[str, torch.Tensor]:
+        ) -> torch.Tensor:
         """
         Forward pass through the critic network.
         
         Args:
             obs: Agent observations
-            actions: Actions (unused for V-function critic)
             
         Returns:
-            Dictionary containing value estimates
+            Tensor of estimated values
         """
         return self.critic(obs)
     
@@ -207,7 +196,17 @@ class MLPCriticNetwork(BaseCriticNetwork):
         return self.critic.parameters()
     
 class MLPActorCriticNetwork(BaseActorCriticNetwork):
-    """MLP-based Actor-Critic Network."""
+    """MLP-based Actor-Critic Network.
+    
+    Args:
+        actor_obs_dim: Dimension of observation space for actor network
+        critic_obs_dim: Dimension of observation space for critic network
+        num_actions: Dimension of action space
+        critic_output_dim: Dimension of critic output
+        actor_hidden_dims: Dimensions of hidden layers
+        critic_hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+    """
     
     def __init__(
         self,
@@ -219,18 +218,6 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         critic_hidden_dims: List[int] = [256, 256],
         activation: str = "relu",
         ):
-        """
-        Initialize MLP actor-critic network.
-
-        Args:
-            actor_obs_dim: Dimension of observation space for actor network
-            critic_obs_dim: Dimension of observation space for critic network
-            num_actions: Dimension of action space
-            critic_output_dim: Dimension of critic output
-            actor_hidden_dims: Dimensions of hidden layers
-            critic_hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-        """
         super().__init__()
 
         self.actor = MLPActorNetwork(
@@ -252,21 +239,21 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         self,
         obs: torch.Tensor,
         deterministic: bool = False
-        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        ) -> Dict[str, torch.Tensor]:
         """
         Forward pass through the actor-critic network.
         
         Args:
             obs: Agent observations
+            deterministic: If True, return mean action instead of sampling
             
         Returns:
-            Tuple containing:
+            Dictionary containing:
                 - Dictionary containing both actor outputs (distribution parameters) 
                 and critic outputs (value estimates)
-                - Dictionary with additional information (log_prob, mean, std, entropy)
         """
         # Actor outputs
-        actor_outputs, actor_info = self.actor.act(obs, deterministic)
+        actor_outputs = self.actor.act(obs, deterministic)
         
         # Critic output
         critic_outputs = self.critic.evaluate(obs)
@@ -276,13 +263,13 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
             "value": critic_outputs
         }
         
-        return result, actor_info
+        return result
 
     def act(
         self,
         obs: torch.Tensor,
         deterministic: bool = False
-        ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        ) -> torch.Tensor:
         """
         Get actions from the actor component.
         
@@ -291,9 +278,8 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
             deterministic: If True, return mean action instead of sampling
             
         Returns:
-            Tuple containing:
+                Tuple containing:
                 - actions: The selected actions
-                - info: Dictionary with additional information (log_prob, mean, std, entropy)
         """
         return self.actor.act(obs, deterministic)
     
@@ -313,12 +299,41 @@ class MLPActorCriticNetwork(BaseActorCriticNetwork):
         """
         return self.critic.evaluate(obs)
     
-    def parameters(self) -> Dict[str, List[Parameter]]:
+    def get_actions_log_prob(self, actions: torch.Tensor) -> torch.Tensor:
+        """
+        Get the log probability of the actions.
+        """
+        return self.actor.get_actions_log_prob(actions)
+    
+    @property
+    def action_mean(self) -> torch.Tensor: 
+        """Mean of the action distribution."""
+        return self.actor.action_mean
+    
+    @property
+    def action_std(self) -> torch.Tensor:
+        """Standard deviation of the action distribution."""
+        return self.actor.action_std
+    
+    @property
+    def entropy(self) -> torch.Tensor:
+        """Entropy of the action distribution."""
+        return self.actor.distribution.entropy().sum(dim=-1)
+    
+    def parameters(self) -> Iterator[Parameter]:
         """Parameters of the network."""
-        return {"actor": list(self.actor.parameters()), "critic": list(self.critic.parameters())}
+        return iter(list(self.actor.parameters()) + list(self.critic.parameters()))
+        
         
 class MLPEncoderNetwork(BaseNetwork):
-    """MLP-based Encoder Network."""
+    """MLP-based Encoder Network.
+    
+    Args:
+        input_dim: Input feature dimension
+        output_dim: Output feature dimension
+        hidden_dims: Dimensions of hidden layers
+        activation: Activation function to use
+    """
 
     def __init__(
         self,
@@ -327,15 +342,6 @@ class MLPEncoderNetwork(BaseNetwork):
         hidden_dims: List[int] = [256, 256],
         activation: str = "relu"
     ):
-        """
-        Initialize MLP encoder.
-
-        Args:
-            input_dim: Input feature dimension
-            output_dim: Output feature dimension
-            hidden_dims: Dimensions of hidden layers
-            activation: Activation function to use
-        """
         super().__init__()
 
         self.input_dim = input_dim

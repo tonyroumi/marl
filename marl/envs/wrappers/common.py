@@ -21,6 +21,7 @@ class EpisodeStatsWrapper(Wrapper):
         info["eps_len"] = self.eps_len
         return observation, reward, done, info
 
+
 class RecordVideoWrapper(Wrapper):
     """
     A wrapper that records a video of the environment for all cameras in the environment.

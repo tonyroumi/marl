@@ -36,21 +36,21 @@ def inspect(cfg: DictConfig):
             print(f"{key}: {shape}")
         else:
             print(f"{key}: {type(value)}")
-    
+    print("\n=== Action Space ===")
+    print(env.action_dim)
+
+  
+
+    policy = build_policy_from_config(cfg['policy'])
     
     print("\n=== Model Sizes ===")
-
-    policy = build_policy_from_config(cfg['policies'])
-    
-   
     for name, component in policy.components.items():
         print(f"Policy component: {name}")
         # If component has parameters (like neural networks)
         
         params = component.parameters()
-        for agent_id, params in params.items():
-            total_params = sum(p.numel() for p in params)
-            print(f"  Agent {agent_id},  Parameters: {total_params:,}")
+        total_params = sum(p.numel() for p in params)
+        print(f"  Parameters: {total_params:,}")
     
     print("\n=== Saving Images ===")
     

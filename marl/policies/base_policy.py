@@ -1,15 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple, Any, List
+from typing import Dict, Tuple, Any, List, Union, Iterator
 
+from torch.nn import Parameter
 import torch
 
 class BasePolicy(ABC):
     """ 
     Abstract base class for all policies.
+
     This class provides the interface that all policies must implement.
     """
 
-    @abstractmethod
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         """ 
         Perform a forward pass through the network.
@@ -21,55 +22,50 @@ class BasePolicy(ABC):
         Returns:
            Raw network outputs.
         """
-        pass
+        raise NotImplementedError("This method is not implemented for this policy.")
     
     @abstractmethod
     def act(
         self, 
         obs: torch.Tensor, 
         **kwargs: Any
-        ) -> Tuple[torch.Tensor, Dict[str, Any]]:
+        ) -> Union[torch.Tensor, Dict[str, Any]]:
         """
-        Get actions from the policy, either sampled (for exploration) or deterministic (for evaluation).
+        Get actions from the policy.
         
         Args:
             obs: Agent observations
             
         Returns:
-            Tuple containing:
-                - actions: The selected actions 
-                - info: Dictionary with additional information such as log probabilities,
-                  distribution parameters, and entropy
+            actions: The selected actions
         """
         pass
     
     def evaluate(
         self, 
         obs: torch.Tensor, 
-        ) -> torch.Tensor:
+        ) -> Union[torch.Tensor, Dict[str, Any]]:
         """
         Get value estimates from the policy (for policies with critic components).
-        
-        This method is not abstract as not all policies have value functions.
-        Default implementation raises NotImplementedError.
         
         Args:
             obs: Agent observations
             
         Returns:
-            Tuple containing:
-                - values: The estimated values
-                - info: Dictionary with additional value-related information
-                
+            values: The estimated values
+
         Raises:
             NotImplementedError: If the policy does not implement a value function
         """
         raise NotImplementedError("This method is not implemented for this policy.")
 
     @abstractmethod
-    def parameters(self) -> Dict[str, List[torch.Tensor]]:
+    def parameters(self) -> Union[Iterator[Parameter], Dict[str, List[Parameter]]]:
         """
         Get all parameters of the policy.
+
+        Returns:
+            parameters: The policy parameters
         """
         pass
 

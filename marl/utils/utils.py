@@ -1,4 +1,5 @@
 import torch
+
 from robosuite.controllers import load_composite_controller_config
 
 def resolve_nn_activation(act_name: str) -> torch.nn.Module:
