@@ -6,5 +6,5 @@ components:
     actor_obs_dim: 86
     num_actions: 14
     critic_out_dim: 1
-    actor_hidden_dims: [256,256]
-    critic_hidden_dims: [256,256]
+    actor_hidden_dims: [256]
+    critic_hidden_dims: [256]

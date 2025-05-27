@@ -1,10 +1,5 @@
 import gymnasium as gym
 
-import imageio
-import torch
-import numpy as np
-from typing import Dict, List
-
 
 class EpisodeStatsWrapper(gym.Wrapper):
     """
@@ -78,21 +73,3 @@ class EpisodeStatsWrapper(gym.Wrapper):
                 
 #             # Close the writer
 #             writer.close()
-
-# class TorchObsWrapper(Wrapper):
-#     def reset(self):
-#         obs = super().reset()
-#         return self._to_tensor(obs)
-    
-#     def step(self, action):
-#         obs, reward, done, info = super().step(action)
-#         if done:
-#             obs = self.env.reset()
-#         return self._to_tensor(obs), reward, done, info
-    
-#     def _get_observations(self):
-#         obs = self.env._get_observations()
-#         return self._to_tensor(obs)
-    
-#     def _to_tensor(self, obs):
-#         return {key: torch.from_numpy(obs[key]).float() for key in obs}

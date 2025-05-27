@@ -39,6 +39,7 @@ def build_env_from_config(config: DictConfig):
     env_type = config.get("type")
     num_envs = config.get("num_envs")
     seed = config.get("seed")
+    max_episode_steps = config.get("max_episode_steps", 200)
     record_video_path = config.get("record_video_path")
 
     env_kwargs = config.get("env_kwargs", {})
@@ -53,6 +54,7 @@ def build_env_from_config(config: DictConfig):
         env_type=env_type,
         num_envs=num_envs,
         seed=seed,
+        max_episode_steps=max_episode_steps,
         record_video_path=record_video_path,
         env_kwargs=env_kwargs
     )

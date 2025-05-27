@@ -35,7 +35,6 @@ class BasicAgent:
         observation_config: Dict[str, List[str]],
         num_transitions_per_env: int,
         normalize_observations: bool,
-        preprocess_observations: bool,
         logger: Optional[Any] = None,
         device: Optional[torch.device] = None,
         ):
@@ -46,7 +45,6 @@ class BasicAgent:
 
       self.observation_config = observation_config
       self.normalize_observations = normalize_observations
-      self.preprocess_observations = preprocess_observations
       self.num_transitions_per_env = num_transitions_per_env
       self.device = device
 
@@ -77,7 +75,7 @@ class BasicAgent:
         self._init_normalizers()
 
     def _init_normalizers(self):
-        """Initialize observation normalizers based on config"""
+        """Initialize observation normalizers"""
         device = self.device
         
         if self.normalize_observations:
@@ -86,7 +84,7 @@ class BasicAgent:
             self.actor_obs_normalizer = {}
             self.critic_obs_normalizer = {}
             
-            for agent in self.agents: #Right now there are separate normalizers for actor and critic. we may want this to be the same
+            for agent in self.agents:
                 self.actor_obs_normalizer[agent] = EmpiricalNormalization(
                     shape=[self.num_actor_obs[agent]], 
                     until=1.0e8
@@ -162,16 +160,11 @@ class BasicAgent:
                 critic_obs=critic_obs,
             )
 
-                # actions = self.algorithm.act(
-                #     actor_obs=actor_obs[agent_id],
-                #     critic_obs=critic_obs[agent_id],
-                #     agent_id=agent_id
-                # ).cpu().numpy()
 
             # Step environment
             actions = self.process_actions(actions)
             obs, rewards, dones, truncated, infos = self.env.step(actions)
-            print(rewards)
+
             actor_obs, critic_obs = self.process_observations(obs)
             actor_obs, critic_obs = self._normalize_observations(actor_obs, critic_obs)
 
@@ -216,11 +209,12 @@ class BasicAgent:
                         agent_id=agent
                     )
               
-            loss_dict = self.algorithm.update() #This will update both agent weights and critics
+            loss_dict = self.algorithm.update() #This will update both agents weights and critics
             learn_time = time.time() - learn_start
             self.current_learning_iteration = iteration
 
             # Log training progress
+
     def train_mode(self):
         """Switch to training mode"""
         self.policy.train()

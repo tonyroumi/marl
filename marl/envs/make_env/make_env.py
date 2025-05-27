@@ -1,10 +1,11 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 from functools import partial
 
 import marl.envs.make_env._robosuite as _robosuite
 import marl.envs.make_env._gymnasium as _gymnasium
 from marl.envs.wrappers.common import EpisodeStatsWrapper
-from gymnasium.wrappers import TimeLimit
+from marl.envs.wrappers._robosuite import RobosuiteWrapper
+
 from gymnasium.vector import AsyncVectorEnv, SyncVectorEnv
 from robosuite.wrappers.gym_wrapper import GymWrapper
 
@@ -22,14 +23,27 @@ def make_env(
     record_video_path: Optional[str] = None,
     env_kwargs: dict = dict(),
     wrappers: list[Callable] = [],
+    **kwargs: Any
 ):
-    """ Make an environment. 
-    
+    """
+    Creates and returns a vectorized or single-instance environment, wrapped and optionally configured 
+    for video recording and statistic tracking.
+
+    This currently supports both `gymnasium` and `robosuite` environments. 
+
+
     Args:
-        env_id: The id of the environment to make.
-        env_type: The type of environment to make (only cpu atm).
-        env_kwargs: The kwargs to pass to the environment.
-        wrappers: The wrappers to wrap the environment with.
+        env_id (str): The environment ID (used by gymnasium or robosuite).
+        env_type (str): Type of the environment, e.g., "gym:cpu". JAX environments are not yet supported.
+        num_envs (int, optional): Number of parallel environments to create. Defaults to 1.
+        seed (int, optional): Random seed used to initialize the environment. Defaults to 0.
+        record_video_path (str, optional): Directory path to save episode recordings.
+        env_kwargs (dict): Additional arguments to pass to the environment constructor.
+        wrappers (list[Callable]): List of additional wrappers to apply to each environment.
+        **kwargs (Any): Additional arguments passed to the environment factory.
+
+    Returns:
+       A (vectorized) Gym-compatible environment instance ready for training or evaluation.
     """
     if env_type == "jax":
         raise NotImplementedError("Jax environment is not implemented yet")
@@ -41,7 +55,7 @@ def make_env(
 
         if _robosuite.is_robosuite_env(env_id):
             env_factory = _robosuite.env_factory
-            wrappers = [partial(GymWrapper, flatten_obs=False), *wrappers]
+            wrappers = [partial(GymWrapper, flatten_obs=False), RobosuiteWrapper, *wrappers]
             context = "forkserver"
         elif _gymnasium.is_gymnasium_env(env_id):
             env_factory = _gymnasium.env_factory
@@ -60,7 +74,8 @@ def make_env(
                         idx=idx,
                         env_kwargs=env_kwargs,
                         record_video_path=record_video_path,
-                        wrappers=wrappers
+                        wrappers=wrappers,
+                        **kwargs
                     )
                     for idx in range(num_envs)
                 ]

@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Callable
 
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo, TimeLimit
+from marl.envs.wrappers._gymasnium import GymnasiumWrapper
 
 def is_gymnasium_env(env_id: str):
     """
@@ -15,16 +16,41 @@ def is_gymnasium_env(env_id: str):
   
     return env_id in registry
 
-def env_factory(env_id: str, idx: int, record_video_path: str = None, env_kwargs: Dict[str, Any] = {}, wrappers: List[Callable] = []):
+def env_factory(
+    env_id: str, 
+    idx: int, 
+    max_episode_steps: int = 200, 
+    record_video_path: str = None, 
+    env_kwargs: Dict[str, Any] = {}, 
+    wrappers: List[Callable] = []):
     """
-    Create a gymnasium environment
+    Creates a factory function that initializes and returns a wrapped Gymnasium environment.
+
+    This factory applies a standard set of wrappers to ensure consistency with the codebase,
+    including:
+    - `GymnasiumWrapper`: Ensures observations are in dict format.
+    - `TimeLimit`: Enforces a maximum episode length.
+    - Custom wrappers passed in the `wrappers` list.
+    - `RecordVideo`: Optionally records videos if `record_video_path` is provided and `idx == 0`.
+
+    Args:
+        env_id (str): ID of the Gymnasium environment to create.
+        idx (int): Index of the environment, used for vector envs.
+        max_episode_steps (int): Maximum number of steps per episode before termination.
+        record_video_path (str, optional): Directory path to store recorded videos.
+        env_kwargs (Dict[str, Any]): Additional keyword arguments passed to the environment constructor.
+        wrappers (List[Callable]): A list of callable wrappers to apply to the environment.
+
+    Returns:
+       A function that when called, returns the fully wrapped Gymnasium environment.
     """
     def _init():
         env = gym.make(
             env_id,
             **env_kwargs
         )
-        env = TimeLimit(env, max_episode_steps=200)
+        env = GymnasiumWrapper(env) #Codebase expects obs to be a dict
+        env = TimeLimit(env, max_episode_steps=max_episode_steps)
         for wrapper in wrappers:
             env = wrapper(env)
         if record_video_path is not None and idx == 0:

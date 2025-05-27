@@ -55,7 +55,7 @@ def inspect(cfg: DictConfig):
     
     print("\n=== Saving Images ===")
     
-    # Save any observation that has "_image" in the key
+    # Save any observation that has "_image" in the key. only for robosuite!
     for key, value in obs.items():
         if "_image" in key or "_depth" in key and isinstance(value, np.ndarray):
             print(f"Saving image from observation: {key}")
