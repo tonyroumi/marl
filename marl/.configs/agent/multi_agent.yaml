@@ -1,19 +1,19 @@
 agent_0:
   actor_observations: [
-    robot0_proprio-state, #(43,)
+    [robot0_proprio-state, 43] #(43,)
   ]
   critic_observations: [
-    robot0_proprio-state, #(43,)
-    object-state #(41,)
+    [robot0_proprio-state, 43] #(43,)
+    [object-state, 41] #(41,)
   ]
 
 agent_1:
   actor_observations: [
-    robot1_proprio-state, #(43,)
+    [robot1_proprio-state, 43] #(43,)
   ]
   critic_observations: [
-    robot1_proprio-state, #(43,)
-    object-state #(41,)
+    [robot1_proprio-state, 43] #(43,)
+    [object-state, 41] #(41,)
   ]
 
 kwargs: 

@@ -169,8 +169,8 @@ class PPO(BaseAlgorithm):
 
   def _process_env_step_single_agent(self, rewards, dones, agent_id: str) -> None:
       """Process environment step for a single agent"""
-      self.transitions[agent_id].rewards = rewards
-      self.transitions[agent_id].dones = dones
+      self.transitions[agent_id].rewards = torch.from_numpy(rewards).clone()
+      self.transitions[agent_id].dones = torch.from_numpy(dones).clone()
 
       self.storage[agent_id].add(self.transitions[agent_id])
       self.transitions[agent_id] = Transition()

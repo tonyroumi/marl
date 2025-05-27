@@ -5,9 +5,6 @@ defaults:
   - agent: single_agent
   - algorithm: ppo
 
-#For a single actor-critic this is how we would specify the agent and critic names
-# agent_names: ["agent_0"]
-# critic_names: ["agent_0"]
 
 experiment:
   name: "single_agent_ppo"

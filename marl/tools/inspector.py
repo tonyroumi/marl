@@ -18,9 +18,10 @@ def inspect(cfg: DictConfig):
     cfg =  OmegaConf.to_container(cfg, resolve=True)
     
     env = build_env_from_config(cfg['environment'])
+    print('Num Envs:', env.num_envs)
     
     # Reset environment to get initial observation
-    obs = env.reset()
+    obs, info = env.reset()
     robot_obs_counts = {}
     total_obs_count = 0
     rgb_image_count = 0
@@ -37,7 +38,7 @@ def inspect(cfg: DictConfig):
         else:
             print(f"{key}: {type(value)}")
     print("\n=== Action Space ===")
-    print(env.action_dim)
+    print(env.action_space)
 
   
 

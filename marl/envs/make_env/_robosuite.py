@@ -1,5 +1,8 @@
-from typing import Any, Dict
+from typing import Any, Dict, List, Callable
+
 import robosuite
+from gymnasium.wrappers import RecordVideo
+import gym
 
 def is_robosuite_env(env_id: str):
     """
@@ -13,11 +16,20 @@ def is_robosuite_env(env_id: str):
 
     return env_id in ALL_ENVIRONMENTS
 
-def env_factory(env_id: str, env_kwargs: Dict[str, Any]):
+def env_factory(env_id: str, idx: int, record_video_path: str = None, env_kwargs: Dict[str, Any] = {}, wrappers: List[Callable] = []):
     """
-    Create a robosuite environment
+    Create a robosuite environment wrapped for gymnasium
     """
-    return robosuite.make(
-        env_id,
-        **env_kwargs
-    )
+    def _init():
+        env = robosuite.make(
+            env_id,
+            **env_kwargs
+        )
+        for wrapper in wrappers:
+            env = wrapper(env)
+        if record_video_path is not None and idx == 0:
+            env = RecordVideo(env, record_video_path, episode_trigger=lambda x: True)
+        return env
+    return _init
+
+  

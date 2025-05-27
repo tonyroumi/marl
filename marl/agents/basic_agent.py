@@ -40,7 +40,6 @@ class BasicAgent:
         device: Optional[torch.device] = None,
         ):
       self.env = env
-      self.env.num_envs = 1 #Placeholder for now
       self.policy = policy
       self.algorithm = algorithm
       self.logger = logger
@@ -59,16 +58,15 @@ class BasicAgent:
 
     def _post_init(self):
         """Initialize derived properties after main initialization."""
-        obs = self.env.reset()
         
         # Compute observation dimensions
         self.num_actor_obs = {}
         for agent, keys in self.actor_obs_keys.items():
-            self.num_actor_obs[agent] = sum(obs[key].shape[-1] for key in keys)
+            self.num_actor_obs[agent] = sum(dim for _, dim in keys)
         
         self.num_critic_obs = {}
         for critic, keys in self.critic_obs_keys.items():
-            self.num_critic_obs[critic] = sum(obs[key].shape[-1] for key in keys)
+            self.num_critic_obs[critic] = sum(dim for _, dim in keys)
         
         self.agents = list(self.actor_obs_keys.keys())
         self.critics = list(self.critic_obs_keys.keys())
@@ -106,7 +104,10 @@ class BasicAgent:
     def _init_buffers(self):
         self.buffers = self.algorithm._init_storage(self.env.num_envs, self.num_transitions_per_env)
     
-    def process_observations(self, all_obs: Dict[str, torch.Tensor]) -> Tuple[Dict, Dict]:
+    def process_observations(
+        self, 
+        all_obs: Dict[str, np.ndarray]
+        ) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """
         Process observations by selecting and concatenating desired observations.
         
@@ -121,21 +122,25 @@ class BasicAgent:
         
         # Process actor observations
         for agent in self.agents:
-            agent_obs = torch.cat(
-                [all_obs[key] for key in self.actor_obs_keys[agent]], 
-                dim=-1
-            ).to(self.device)
+            agent_obs = torch.from_numpy(np.concatenate(
+                [all_obs[key] for key,dim in self.actor_obs_keys[agent]], 
+                axis=-1
+            )).float().to(self.device)
             actor_obs[agent] = agent_obs
         
         # Process critic observations
         for critic in self.critics:
-            critic_obs_tensor = torch.cat(
-                [all_obs[key] for key in self.critic_obs_keys[critic]], 
-                dim=-1
-            ).to(self.device)
+            critic_obs_tensor = torch.from_numpy(np.concatenate(
+                [all_obs[key] for key,dim in self.critic_obs_keys[critic]], 
+                axis=-1
+            )).float().to(self.device)
             critic_obs[critic] = critic_obs_tensor
         
         return actor_obs, critic_obs
+
+    def process_actions(self, actions: Dict[str, np.ndarray]) -> torch.Tensor:
+        """Process actions by selecting and concatenating desired actions."""
+        return np.concatenate([actions[agent].cpu() for agent in self.agents], axis=-1)
     
     def _normalize_observations(self, actor_obs: Dict, critic_obs: Dict) -> Tuple[Dict, Dict]:
         """Apply normalization to observations."""
@@ -149,27 +154,30 @@ class BasicAgent:
     
     def _collect_rollouts(self, actor_obs: Dict, critic_obs: Dict, num_transitions: int = 24) -> Tuple[Dict, Dict]:
         """Collect rollout experiences from environment interactions."""
-        actions = np.zeros((len(self.agents), self.env.action_dim // len(self.agents)))
         
-        with torch.inference_mode():
-            for _ in range(num_transitions):
-                # Get actions from all agents
-                for i, agent_id in enumerate(self.agents):
-                    actions[i] = self.algorithm.act(
-                        actor_obs=actor_obs[agent_id],
-                        critic_obs=critic_obs[agent_id],
-                        agent_id=agent_id
-                    ).cpu().numpy()
+        for _ in range(num_transitions):
+            # Get actions from all agents
+            actions = self.algorithm.act(
+                actor_obs=actor_obs,
+                critic_obs=critic_obs,
+            )
 
-                # Step environment
-                obs, rewards, dones, infos = self.env.step(actions.squeeze())
-                print(rewards)
-                actor_obs, critic_obs = self.process_observations(obs)
-                actor_obs, critic_obs = self._normalize_observations(actor_obs, critic_obs)
+                # actions = self.algorithm.act(
+                #     actor_obs=actor_obs[agent_id],
+                #     critic_obs=critic_obs[agent_id],
+                #     agent_id=agent_id
+                # ).cpu().numpy()
 
-                # Process environment step for each agent
-                for agent in self.agents:
-                    self.algorithm.process_env_step(rewards, dones, agent)
+            # Step environment
+            actions = self.process_actions(actions)
+            obs, rewards, dones, truncated, infos = self.env.step(actions)
+            print(rewards)
+            actor_obs, critic_obs = self.process_observations(obs)
+            actor_obs, critic_obs = self._normalize_observations(actor_obs, critic_obs)
+
+            # Process environment step for each agent
+            for agent in self.agents:
+                self.algorithm.process_env_step(rewards, dones, agent)
         
         return actor_obs, critic_obs
       
@@ -182,8 +190,8 @@ class BasicAgent:
         """
         
         # Get initial observations
-        all_obs = self.env.reset()
-        actor_obs, critic_obs = self.process_observations(all_obs)
+        obs, info = self.env.reset()
+        actor_obs, critic_obs = self.process_observations(obs)
         self.train_mode() #Switch to training mode
 
         ep_infos = []

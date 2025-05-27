@@ -13,7 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 from marl.agents.basic_agent import BasicAgent
 from marl.algorithms.ppo import PPO
 from marl.envs.make_env.make_env import make_env
-from marl.envs.wrappers._robosuite import TorchObsWrapper
+# from marl.envs.wrappers._robosuite import MultiAgentEnvWrapper
 from marl.policies import MultiAgentPolicyBuilder
 from marl.utils.utils import resolve_controller
 
@@ -37,6 +37,10 @@ def build_env_from_config(config: DictConfig):
     """
     env_id = config.get("id")
     env_type = config.get("type")
+    num_envs = config.get("num_envs")
+    seed = config.get("seed")
+    record_video_path = config.get("record_video_path")
+
     env_kwargs = config.get("env_kwargs", {})
     
     # Resolve controller configuration if present
@@ -44,7 +48,14 @@ def build_env_from_config(config: DictConfig):
         controller_config = resolve_controller(env_kwargs["controller_configs"])
         env_kwargs["controller_configs"] = controller_config
 
-    return make_env(env_id, env_type, env_kwargs)
+    return make_env(
+        env_id=env_id,
+        env_type=env_type,
+        num_envs=num_envs,
+        seed=seed,
+        record_video_path=record_video_path,
+        env_kwargs=env_kwargs
+    )
 
 
 # =============================================================================
@@ -145,8 +156,9 @@ def _extract_observation_keys(config: DictConfig) -> Tuple[Dict[str, Any], Dict[
         agent: config["agent"][agent]["actor_observations"] 
         for agent in config["agent"] if agent != "kwargs"
     }
+    
     critic_obs_keys = {
-        agent: config["agent"][agent]["critic_observations"] 
+        agent: config["agent"][agent].get("critic_observations", config["agent"][agent]["actor_observations"])
         for agent in config["agent"] if agent != "kwargs"
     }
     
@@ -195,10 +207,12 @@ def build_from_config(config: DictConfig) -> Tuple[Any, BasicAgent]:
     config = OmegaConf.to_container(config, resolve=True)
     # Build environment with wrapper
     env = build_env_from_config(config["environment"])
-    env = TorchObsWrapper(env)
-    
+    # env = TorchObsWrapper(env)
+    # env = StandardEnvWrapper(env, config["agent"]["kwargs"]["agent_ids"])
+    # env = MultiAgentEnvWrapper(env, config["agent"]["kwargs"]["agent_ids"])
     # Build policy
     policy = build_policy_from_config(config["policy"])
+    num_transitions_per_env = config["algorithm"]["global"]["num_transitions_per_env"]
     
     # Build algorithm with parsed agent configurations
     agent_configs = parse_agent_configs(config["algorithm"])
@@ -226,6 +240,7 @@ def build_from_config(config: DictConfig) -> Tuple[Any, BasicAgent]:
         policy=policy, 
         algorithm=algorithm,
         observation_config=observation_config,
+        num_transitions_per_env=num_transitions_per_env,
         normalize_observations=normalize_observations,
         preprocess_observations=preprocess_observations,
         device=device
