@@ -22,4 +22,4 @@ class RobosuiteWrapper(gym.Wrapper):
     def __getattr__(self, name):
         if name == "spec":
             return self.env.spec
-        return getattr(self.env, name)
+        return getattr(self.env.unwrapped, name)

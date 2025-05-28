@@ -55,7 +55,7 @@ def make_env(
 
         if _robosuite.is_robosuite_env(env_id):
             env_factory = _robosuite.env_factory
-            wrappers = [partial(GymWrapper, flatten_obs=False), RobosuiteWrapper, *wrappers]
+            wrappers = [partial(GymWrapper, flatten_obs=False), *wrappers]
             context = "forkserver"
         elif _gymnasium.is_gymnasium_env(env_id):
             env_factory = _gymnasium.env_factory
@@ -81,6 +81,14 @@ def make_env(
                 ]
             )
         else:
+            env = env_factory(
+                env_id=env_id,
+                idx=0,
+                env_kwargs=env_kwargs,
+                record_video_path=record_video_path,
+                wrappers=wrappers,
+                **kwargs
+            )()
             raise ValueError(f"Unknown environment type: {env_type}")
         env.reset(seed=seed)
 
