@@ -1,3 +1,5 @@
+agent_class: BasicMARLAgent
+
 agent_0:
   actor_observations: [
     [all_obs, 2], 
@@ -6,5 +8,4 @@ agent_0:
 
 kwargs: 
   normalize_observations: false
-  preprocess_observations: false
   agent_ids: [agent_0]
