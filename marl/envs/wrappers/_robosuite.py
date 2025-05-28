@@ -1,21 +1,25 @@
+from robosuite.wrappers import Wrapper
+import gymnasium as gym
 import torch
-from robosuite.wrappers.wrapper import Wrapper
 
+class RobosuiteWrapper(gym.Wrapper):
+    """ Wrapper for robosuite environments to be used with gymnasium.
+    """
 
-class TorchObsWrapper(Wrapper):
-    def reset(self):
-        obs = super().reset()
-        return self._to_tensor(obs)
+    def reset(self, seed=None, options=None):
+        obs, info = super().reset(seed=seed, options=options)
+        obs = self._get_observations(obs)
+        return obs, info
     
     def step(self, action):
-        obs, reward, done, info = super().step(action)
-        if done:
-            obs = self.env.reset()
-        return self._to_tensor(obs), reward, done, info
-    
-    def _get_observations(self):
-        obs = self.env._get_observations()
-        return self._to_tensor(obs)
-    
+        obs, reward, terminated, truncated, info = super().step(action)
+        obs = self._get_observations(obs)
+        return obs, reward, terminated, truncated, info
+
     def _to_tensor(self, obs):
-        return {key: torch.from_numpy(obs[key]).float() for key in obs}
+        return torch.from_numpy(obs).float()
+
+    def __getattr__(self, name):
+        if name == "spec":
+            return self.env.spec
+        return getattr(self.env, name)

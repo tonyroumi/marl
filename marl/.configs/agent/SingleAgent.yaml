@@ -1,0 +1,15 @@
+agent_class: BasicMARLAgent
+
+agent_0:
+  actor_observations: [
+    [robot0_proprio-state, 43], #(39,)
+    [robot1_proprio-state, 43]
+  ]
+  # critic_observations: [
+  #   [robot1_proprio-state, 39] #(39,)
+  # ]
+
+
+kwargs: 
+  normalize_observations: true
+  agent_ids: [agent_0]

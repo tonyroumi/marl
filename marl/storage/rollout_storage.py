@@ -140,10 +140,10 @@ class RolloutStorage:
         self.observations[self.step].copy_(transition.actor_observations)
         self.critic_observations[self.step].copy_(transition.critic_observations)
         self.actions[self.step].copy_(transition.actions)
-        self.rewards[self.step].copy_(transition.rewards)
-        self.dones[self.step].copy_(transition.dones)
+        self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
+        self.dones[self.step].copy_(transition.dones.view(-1, 1))
         self.values[self.step].copy_(transition.values)
-        self.actions_log_prob[self.step].copy_(transition.actions_log_prob)
+        self.actions_log_prob[self.step].copy_(transition.actions_log_prob.view(-1, 1))
         self.mu[self.step].copy_(transition.action_mean)
         self.sigma[self.step].copy_(transition.action_sigma)
 

@@ -6,7 +6,7 @@ from marl.utils.config_utils import build_from_config
 def test_agent(cfg: DictConfig):
     """Test that an environment can be created from a config.yaml file using Hydra."""
     env, agent = build_from_config(cfg)
-    obs = env.reset()
+    env.reset()
     agent.learn()
     
     # Assert environment was created successfully

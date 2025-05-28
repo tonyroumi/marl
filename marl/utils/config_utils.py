@@ -10,13 +10,12 @@ from typing import Dict, Any, Tuple
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from marl.agents.basic_agent import BasicAgent
-from marl.algorithms.ppo import PPO
+from marl.agents.base_marl import BaseMARLAgent
+from marl.agents.basic_marl_agent import BasicMARLAgent
 from marl.envs.make_env.make_env import make_env
-from marl.envs.wrappers._robosuite import TorchObsWrapper
 from marl.policies import MultiAgentPolicyBuilder
 from marl.utils.utils import resolve_controller
-
+from marl.algorithms.ppo import PPO
 
 # =============================================================================
 # Environment Builder
@@ -37,6 +36,11 @@ def build_env_from_config(config: DictConfig):
     """
     env_id = config.get("id")
     env_type = config.get("type")
+    num_envs = config.get("num_envs")
+    seed = config.get("seed")
+    max_episode_steps = config.get("max_episode_steps", 200)
+    record_video_path = config.get("record_video_path")
+
     env_kwargs = config.get("env_kwargs", {})
     
     # Resolve controller configuration if present
@@ -44,7 +48,15 @@ def build_env_from_config(config: DictConfig):
         controller_config = resolve_controller(env_kwargs["controller_configs"])
         env_kwargs["controller_configs"] = controller_config
 
-    return make_env(env_id, env_type, env_kwargs)
+    return make_env(
+        env_id=env_id,
+        env_type=env_type,
+        num_envs=num_envs,
+        seed=seed,
+        max_episode_steps=max_episode_steps,
+        record_video_path=record_video_path,
+        env_kwargs=env_kwargs
+    )
 
 
 # =============================================================================
@@ -143,17 +155,18 @@ def _extract_observation_keys(config: DictConfig) -> Tuple[Dict[str, Any], Dict[
     """
     actor_obs_keys = {
         agent: config["agent"][agent]["actor_observations"] 
-        for agent in config["agent"] if agent != "kwargs"
+        for agent in config["agent"] if agent != "kwargs" and agent != "agent_class"
     }
+    
     critic_obs_keys = {
-        agent: config["agent"][agent]["critic_observations"] 
-        for agent in config["agent"] if agent != "kwargs"
+        agent: config["agent"][agent].get("critic_observations", config["agent"][agent]["actor_observations"])
+        for agent in config["agent"] if agent != "kwargs" and agent != "agent_class"
     }
     
     return actor_obs_keys, critic_obs_keys
 
 
-def _extract_agent_kwargs(config: DictConfig) -> Tuple[bool, bool]:
+def _extract_agent_kwargs(config: DictConfig) -> bool:
     """
     Extract agent keyword arguments from configuration.
     
@@ -165,16 +178,15 @@ def _extract_agent_kwargs(config: DictConfig) -> Tuple[bool, bool]:
     """
     agent_kwargs = config["agent"]["kwargs"]
     normalize_observations = agent_kwargs["normalize_observations"]
-    preprocess_observations = agent_kwargs["preprocess_observations"]
     
-    return normalize_observations, preprocess_observations
+    return normalize_observations
 
 
 # =============================================================================
 # Main Builder Function
 # =============================================================================
 
-def build_from_config(config: DictConfig) -> Tuple[Any, BasicAgent]:
+def build_from_config(config: DictConfig) -> Tuple[Any, BaseMARLAgent]:
     """
     Build all MARL components from configuration.
     
@@ -195,10 +207,8 @@ def build_from_config(config: DictConfig) -> Tuple[Any, BasicAgent]:
     config = OmegaConf.to_container(config, resolve=True)
     # Build environment with wrapper
     env = build_env_from_config(config["environment"])
-    env = TorchObsWrapper(env)
-    
-    # Build policy
     policy = build_policy_from_config(config["policy"])
+    num_transitions_per_env = config["algorithm"]["global"]["num_transitions_per_env"]
     
     # Build algorithm with parsed agent configurations
     agent_configs = parse_agent_configs(config["algorithm"])
@@ -208,27 +218,29 @@ def build_from_config(config: DictConfig) -> Tuple[Any, BasicAgent]:
     actor_obs_keys, critic_obs_keys = _extract_observation_keys(config)
     
     # Extract agent behavioral flags
-    normalize_observations, preprocess_observations = _extract_agent_kwargs(config)
+    normalize_observations = _extract_agent_kwargs(config)
     
     # Create unified observation configuration
     observation_config = {
         "actor_obs_keys": actor_obs_keys,
         "critic_obs_keys": critic_obs_keys
     }
+    agent_class = config["agent"]["agent_class"]
     
     # Determine device
     device_str = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device(device_str)
     
     # Build agent with all components
-    agent = BasicAgent(
-        env=env,
-        policy=policy, 
-        algorithm=algorithm,
-        observation_config=observation_config,
-        normalize_observations=normalize_observations,
-        preprocess_observations=preprocess_observations,
-        device=device
-    )
+    if agent_class == "BasicMARLAgent":
+        agent = BasicMARLAgent(
+            env=env,
+            policy=policy, 
+            algorithm=algorithm,
+            observation_config=observation_config,
+            num_transitions_per_env=num_transitions_per_env,
+            normalize_observations=normalize_observations,
+            device=device
+        )
     
     return env, agent

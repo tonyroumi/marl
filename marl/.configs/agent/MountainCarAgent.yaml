@@ -1,0 +1,11 @@
+agent_class: BasicMARLAgent
+
+agent_0:
+  actor_observations: [
+    [all_obs, 2], 
+  ]
+
+
+kwargs: 
+  normalize_observations: false
+  agent_ids: [agent_0]
