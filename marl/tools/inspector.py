@@ -81,7 +81,7 @@ def inspect(cfg: DictConfig):
             else:
                 # Handle grayscale or unusual dimensions
                 plt.figure(figsize=(10, 10))
-                plt.imshow(value.squeeze(), cmap='gray')
+                plt.imshow(value[0], cmap='gray')
                 plt.savefig(f"{key}.png")
                 plt.close()
     

@@ -4,10 +4,9 @@ from functools import partial
 import marl.envs.make_env._robosuite as _robosuite
 import marl.envs.make_env._gymnasium as _gymnasium
 from marl.envs.wrappers.common import EpisodeStatsWrapper
-from marl.envs.wrappers._robosuite import RobosuiteWrapper
+from marl.envs.wrappers._robosuite import GymWrapper
 
 from gymnasium.vector import AsyncVectorEnv, SyncVectorEnv
-from robosuite.wrappers.gym_wrapper import GymWrapper
 
 def wrap_env(env, wrappers=[]):
     """ Wrap the environment with the given wrappers. """

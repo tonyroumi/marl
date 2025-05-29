@@ -2,8 +2,6 @@ from typing import Any, Dict, List, Callable
 
 import robosuite
 from gymnasium.wrappers import RecordVideo
-from marl.envs.wrappers._robosuite import RobosuiteWrapper
-import gym
 
 def is_robosuite_env(env_id: str):
     """
