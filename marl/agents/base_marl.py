@@ -75,7 +75,7 @@ class BaseMARLAgent(ABC):
             for critic, keys in self.critic_obs_keys.items()
         }
 
-        self.agents = list(self.actor_obs_keys.keys())
+        self.actors = list(self.actor_obs_keys.keys())
         self.critics = list(self.critic_obs_keys.keys())
 
         self._init_buffers()
@@ -95,14 +95,14 @@ class BaseMARLAgent(ABC):
             from marl.networks import EmpiricalNormalization
             self.actor_obs_normalizer = {
                 agent: EmpiricalNormalization(shape=[self.num_actor_obs[agent]], until=1e8).to(self.device)
-                for agent in self.agents
+                for agent in self.actors
             }
             self.critic_obs_normalizer = {
                 critic: EmpiricalNormalization(shape=[self.num_critic_obs[critic]], until=1e8).to(self.device)
                 for critic in self.critics
             }
         else:
-            self.actor_obs_normalizer = {agent: torch.nn.Identity() for agent in self.agents}
+            self.actor_obs_normalizer = {agent: torch.nn.Identity() for agent in self.actors}
             self.critic_obs_normalizer = {critic: torch.nn.Identity() for critic in self.critics}
 
     def process_observations(
@@ -124,7 +124,7 @@ class BaseMARLAgent(ABC):
             agent: torch.from_numpy(np.concatenate([all_obs[key] 
                                                     for key, _ in self.actor_obs_keys[agent]], axis=-1)
                                                     ).float().to(self.device)
-            for agent in self.agents
+            for agent in self.actors
         }
         critic_obs = {
             critic: torch.from_numpy(np.concatenate([all_obs[key] 
@@ -163,7 +163,7 @@ class BaseMARLAgent(ABC):
         Returns:
             Concatenated actions ready to be passed to the environment.
         """
-        return np.concatenate([actions[agent].cpu() for agent in self.agents], axis=-1)
+        return np.concatenate([actions[agent].cpu() for agent in self.actors], axis=-1)
 
     def train_mode(self):
         """

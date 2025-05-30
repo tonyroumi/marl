@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+import random
 
 from robosuite.controllers import load_composite_controller_config
 
@@ -48,3 +50,11 @@ def resolve_controller(controller_config):
     
     else:
         raise ValueError(f"Invalid controller type '{controller_type}'.")
+
+def set_seed(seed: int):
+    """ Set seed for reproducibility """
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)   

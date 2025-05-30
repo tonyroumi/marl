@@ -43,14 +43,14 @@ class BasicMARLAgent(BaseMARLAgent):
         """
         for _ in range(num_transitions):
             actions = self.algorithm.act(actor_obs=actor_obs, critic_obs=critic_obs)
-            actions_tensor = self.process_actions(actions)
+            actions = self.process_actions(actions)
 
-            obs, rewards, dones, truncated, infos = self.env.step(actions_tensor)
+            obs, rewards, dones, truncated, infos = self.env.step(actions)
             actor_obs, critic_obs = self.process_observations(obs)
             actor_obs, critic_obs = self._normalize_observations(actor_obs, critic_obs)
 
-            for agent in self.agents:
-                self.algorithm.process_env_step(rewards, dones, agent)
+           
+            self.algorithm.process_env_step(rewards, dones)
 
         return actor_obs, critic_obs
 

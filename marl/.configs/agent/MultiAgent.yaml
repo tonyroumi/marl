@@ -5,7 +5,7 @@ agent_0:
     [robot0_proprio-state, 43] #(43,)
   ]
   critic_observations: [
-    [robot0_proprio-state, 43] #(43,)
+    [robot0_proprio-state, 43], #(43,)
     [object-state, 41] #(41,)
   ]
 
@@ -14,10 +14,9 @@ agent_1:
     [robot1_proprio-state, 43] #(43,)
   ]
   critic_observations: [
-    [robot1_proprio-state, 43] #(43,)
+    [robot1_proprio-state, 43], #(43,)
     [object-state, 41] #(41,)
   ]
 
 kwargs: 
   normalize_observations: true
-  agent_ids: [agent_0, agent_1]

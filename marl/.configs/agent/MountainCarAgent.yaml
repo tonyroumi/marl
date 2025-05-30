@@ -8,4 +8,3 @@ agent_0:
 
 kwargs: 
   normalize_observations: false
-  agent_ids: [agent_0]

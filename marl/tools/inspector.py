@@ -7,7 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 import matplotlib.pyplot as plt
 from PIL import Image
 
-from marl.utils.config_utils import build_env_from_config, build_policy_from_config
+from marl.utils.config_utils import instantiate_env, instantiate_policy
 
 
 @hydra.main(config_path="../.configs", config_name="config", version_base=None)
@@ -17,7 +17,7 @@ def inspect(cfg: DictConfig):
     """
     cfg =  OmegaConf.to_container(cfg, resolve=True)
     
-    env = build_env_from_config(cfg['environment'])
+    env = instantiate_env(cfg['environment'])
     print('Num Envs:', env.num_envs)
     
     # Reset environment to get initial observation
@@ -42,7 +42,7 @@ def inspect(cfg: DictConfig):
 
   
 
-    policy = build_policy_from_config(cfg['policy'])
+    policy = instantiate_policy(cfg['policy'])
     
     print("\n=== Model Sizes ===")
     for name, component in policy.components.items():

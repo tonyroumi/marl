@@ -5,11 +5,12 @@ agent_0:
     [robot0_proprio-state, 43], #(39,)
     [robot1_proprio-state, 43]
   ]
-  # critic_observations: [
-  #   [robot1_proprio-state, 39] #(39,)
-  # ]
+  critic_observations: [
+    [robot0_proprio-state, 43], #(39,)
+    [robot1_proprio-state, 43]
+  ]
 
 
 kwargs: 
   normalize_observations: true
-  agent_ids: [agent_0]
+  num_transitions_per_env: 1000 #How many transitions to collect per rollout. 

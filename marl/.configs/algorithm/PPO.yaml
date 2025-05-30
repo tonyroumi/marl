@@ -1,3 +1,8 @@
+name: PPO
+actors: ["agent_0", "agent_1"]
+critics: ["agent_0", "agent_1"]
+##IMPORTANT MAKE SURE CORRESPONDING ACTORS AND CRITICS ARE AT THE SAME INDEX
+#For single actor-critic networks, do the same.
 
 global:
   num_learning_epochs: 1
@@ -17,6 +22,8 @@ global:
   num_steps_per_env: 1000
   total_timesteps: 1_000_000
 
-agent_specific_hyperparams: 
-  agent_0:
-    learning_rate: 1e-4
+# agent_specific_hyperparams: 
+#   actor_0:
+#     learning_rate: 1e-4
+#   critic_0:
+#     learning_rate: 1e-4
