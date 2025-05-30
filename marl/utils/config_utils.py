@@ -13,15 +13,16 @@ from omegaconf import DictConfig, OmegaConf
 from marl.agents.base_marl import BaseMARLAgent
 from marl.agents.basic_marl_agent import BasicMARLAgent
 from marl.envs.make_env.make_env import make_env
-from marl.policies import MultiAgentPolicyBuilder
+from marl.policies import MultiAgentPolicyBuilder, BasePolicy
 from marl.utils.utils import resolve_controller
 from marl.algorithms.ppo import PPO
-
+from marl.algorithms.mappo import MAPPO
+from marl.algorithms.base import BaseAlgorithm
 # =============================================================================
 # Environment Builder
 # =============================================================================
 
-def build_env_from_config(config: DictConfig):
+def instantiate_env(config: DictConfig):
     """
     Build environment from configuration.
     
@@ -34,27 +35,19 @@ def build_env_from_config(config: DictConfig):
     Returns:
         Constructed environment instance
     """
-    env_id = config.get("id")
-    env_type = config.get("type")
-    num_envs = config.get("num_envs")
-    seed = config.get("seed")
-    max_episode_steps = config.get("max_episode_steps", 200)
-    record_video_path = config.get("record_video_path")
-
     env_kwargs = config.get("env_kwargs", {})
     
     # Resolve controller configuration if present
     if "controller_configs" in env_kwargs:
-        controller_config = resolve_controller(env_kwargs["controller_configs"])
-        env_kwargs["controller_configs"] = controller_config
-
+        env_kwargs["controller_configs"] = resolve_controller(env_kwargs["controller_configs"])
+    
     return make_env(
-        env_id=env_id,
-        env_type=env_type,
-        num_envs=num_envs,
-        seed=seed,
-        max_episode_steps=max_episode_steps,
-        record_video_path=record_video_path,
+        env_id=config.get("id"),
+        env_type=config.get("type"),
+        num_envs=config.get("num_envs"),
+        seed=config.get("seed"),
+        max_episode_steps=config.get("max_episode_steps", 200),
+        record_video_path=config.get("record_video_path"),
         env_kwargs=env_kwargs
     )
 
@@ -63,7 +56,7 @@ def build_env_from_config(config: DictConfig):
 # Policy Builder
 # =============================================================================
 
-def build_policy_from_config(config: DictConfig):
+def instantiate_policy(config: DictConfig):
     """
     Build multi-agent policy from configuration.
     
@@ -96,7 +89,7 @@ def build_policy_from_config(config: DictConfig):
 # Algorithm Builder
 # =============================================================================
 
-def build_algorithm_from_config(policy, config: Dict[str, Any]):
+def instantiate_algorithm(algorithm_config: DictConfig, policy: MultiAgentPolicyBuilder):
     """
     Build algorithm from configuration.
     
@@ -107,7 +100,12 @@ def build_algorithm_from_config(policy, config: Dict[str, Any]):
     Returns:
         Constructed algorithm instance (currently PPO)
     """
-    return PPO(policy, config)
+    if algorithm_config.get("name") == "PPO":
+        agent_hyperparams = parse_agent_configs(algorithm_config)
+        normalize_advantage_per_mini_batch = algorithm_config["global"].get("normalize_advantage_per_mini_batch", False)
+        return PPO(policy, agent_hyperparams, normalize_advantage_per_mini_batch)
+    elif algorithm_config.get("name") == "MAPPO":
+        return MAPPO(policy, algorithm_config)
 
 
 def parse_agent_configs(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -118,23 +116,45 @@ def parse_agent_configs(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         config: Algorithm configuration containing:
             - global: Global parameters applied to all agents
             - agent_specific_hyperparams: Agent-specific parameter overrides
+            - actors: List of actor names
+            - critics: List of critic names
     
     Returns:
-        Dictionary mapping agent names to their merged configurations
+        Dictionary with structure:
+        {
+            'actors': {agent_id: {params}},
+            'critics': {agent_id: {'learning_rate': value}}
+        }
     """
     global_params = config['global']
-    agent_specific = config['agent_specific_hyperparams']
+    agent_specific = config.get('agent_specific_hyperparams', {})
+    actors = config['actors']
+    critics = config['critics']
     
-    agent_configs = {}
+    agent_configs = {
+        'actors': {},
+        'critics': {}
+    }
     
-    for agent_name, agent_params in agent_specific.items():
-        # Start with global parameters
+    for agent_name in actors:
+        # Start with global parameters for actor
         agent_config = global_params.copy()
         
-        # Override with agent-specific parameters
-        agent_config.update(agent_params)
+        # Apply actor-specific parameters
+        if agent_name in agent_specific:
+            for key, value in agent_specific[agent_name].items():
+                if key in agent_config:
+                    agent_config[key] = value
         
-        agent_configs[agent_name] = agent_config
+        agent_configs['actors'][agent_name] = agent_config
+    
+    for agent_name in critics:
+        agent_config = {}
+        if agent_name in agent_specific: 
+            agent_config["learning_rate"] = agent_specific[agent_name]["learning_rate"]
+        else:
+            agent_config["learning_rate"] = global_params["learning_rate"]
+        agent_configs['critics'][agent_name] = agent_config
     
     return agent_configs
 
@@ -154,13 +174,15 @@ def _extract_observation_keys(config: DictConfig) -> Tuple[Dict[str, Any], Dict[
         Tuple of (actor_obs_keys, critic_obs_keys) dictionaries
     """
     actor_obs_keys = {
-        agent: config["agent"][agent]["actor_observations"] 
-        for agent in config["agent"] if agent != "kwargs" and agent != "agent_class"
+        agent: config[agent]["actor_observations"] 
+        for agent in config 
+        if agent != "kwargs" and agent != "agent_class" and "actor_observations" in config[agent]
     }
     
     critic_obs_keys = {
-        agent: config["agent"][agent].get("critic_observations", config["agent"][agent]["actor_observations"])
-        for agent in config["agent"] if agent != "kwargs" and agent != "agent_class"
+        agent: config[agent]["critic_observations"]
+        for agent in config 
+        if agent != "kwargs" and agent != "agent_class" and "critic_observations" in config[agent]
     }
     
     return actor_obs_keys, critic_obs_keys
@@ -176,71 +198,75 @@ def _extract_agent_kwargs(config: DictConfig) -> bool:
     Returns:
         Tuple of (normalize_observations, preprocess_observations) flags
     """
-    agent_kwargs = config["agent"]["kwargs"]
+    agent_kwargs = config["kwargs"]
     normalize_observations = agent_kwargs["normalize_observations"]
     
     return normalize_observations
 
 
 # =============================================================================
-# Main Builder Function
+# Agent Builder 
 # =============================================================================
 
-def build_from_config(config: DictConfig) -> Tuple[Any, BaseMARLAgent]:
+def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPolicyBuilder, algorithm: BaseAlgorithm) -> BaseMARLAgent:
     """
-    Build all MARL components from configuration.
-    
-    This is the main factory function that constructs the complete MARL pipeline
-    including environment, policy, algorithm, and agent from a unified configuration.
-    
-    Args:
-        config: Complete MARL configuration containing:
-            - environment: Environment configuration
-            - policy: Policy configuration  
-            - algorithm: Algorithm configuration
-            - agent: Agent configuration including observation specs
-            - device: Optional device specification
-    
-    Returns:
-        Tuple of (environment, agent) ready for training
+    Build agent from configuration.
     """
-    config = OmegaConf.to_container(config, resolve=True)
-    # Build environment with wrapper
-    env = build_env_from_config(config["environment"])
-    policy = build_policy_from_config(config["policy"])
-    num_transitions_per_env = config["algorithm"]["global"]["num_transitions_per_env"]
-    
-    # Build algorithm with parsed agent configurations
-    agent_configs = parse_agent_configs(config["algorithm"])
-    algorithm = build_algorithm_from_config(policy, agent_configs)
-    
-    # Extract observation configurations
-    actor_obs_keys, critic_obs_keys = _extract_observation_keys(config)
+    actor_obs_keys, critic_obs_keys = _extract_observation_keys(agent_config)
     
     # Extract agent behavioral flags
-    normalize_observations = _extract_agent_kwargs(config)
+    normalize_observations = _extract_agent_kwargs(agent_config)
     
     # Create unified observation configuration
     observation_config = {
         "actor_obs_keys": actor_obs_keys,
         "critic_obs_keys": critic_obs_keys
     }
-    agent_class = config["agent"]["agent_class"]
+    num_transitions_per_env = agent_config["num_transitions_per_env"]
+    if agent_config.get("agent_class") == "BasicMARLAgent":
+        return BasicMARLAgent(
+        env=env,
+        policy=policy,
+        algorithm=algorithm,
+        observation_config=observation_config,
+        num_transitions_per_env=num_transitions_per_env,
+        normalize_observations=normalize_observations,
+        device = policy.device
+    )
+    else:
+        raise ValueError(f"Agent class {agent_config.get('agent_class')} not supported")
+
+# =============================================================================
+# Main Builder Function
+# =============================================================================
+
+def instantiate_all(config: DictConfig) -> Tuple[Any, BasePolicy, BaseAlgorithm, BaseMARLAgent]:
+    """
+    Build all MARL components from configuration.
     
-    # Determine device
-    device_str = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device(device_str)
+#     This is the main factory function that constructs the complete MARL pipeline
+#     including environment, policy, algorithm, and agent from a unified configuration.
     
-    # Build agent with all components
-    if agent_class == "BasicMARLAgent":
-        agent = BasicMARLAgent(
-            env=env,
-            policy=policy, 
-            algorithm=algorithm,
-            observation_config=observation_config,
-            num_transitions_per_env=num_transitions_per_env,
-            normalize_observations=normalize_observations,
-            device=device
-        )
+#     Args:
+#         config: Complete MARL configuration containing:
+#             - environment: Environment configuration
+#             - policy: Policy configuration  
+#             - algorithm: Algorithm configuration
+#             - agent: Agent configuration including observation specs
+#             - device: Optional device specification
     
-    return env, agent
+    Returns:
+        Tuple of (environment, agent) ready for training
+    """
+    config = OmegaConf.to_container(config, resolve=True)
+    env = instantiate_env(config["environment"])
+    policy = instantiate_policy(config["policy"])
+    algorithm = instantiate_algorithm(config["algorithm"], policy)
+    agent = instantiate_agent(
+        env=env,
+        policy=policy,
+        algorithm=algorithm,
+        agent_config=config["agent"]
+    )
+    return env, policy, algorithm, agent
+    

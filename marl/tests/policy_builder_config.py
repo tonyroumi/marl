@@ -1,7 +1,7 @@
 import torch
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from marl.utils.config_utils import build_policy_from_config
+from marl.utils.config_utils import instantiate_policy
 
 @hydra.main(version_base=None, config_path="../.configs", config_name="config")
 def verify_policy_connections(cfg: DictConfig):
@@ -9,7 +9,7 @@ def verify_policy_connections(cfg: DictConfig):
 
     policy_cfg = OmegaConf.to_container(cfg.policy, resolve=True)
     
-    policy = build_policy_from_config(policy_cfg)
+    policy = instantiate_policy(policy_cfg)
     
     print(f"Successfully built policy from Hydra config")
     
