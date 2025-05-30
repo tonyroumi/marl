@@ -361,3 +361,147 @@ class CLASVAE:
             robot1_action = torch.tanh(mu_1)
         
         return robot0_action, robot1_action
+    
+    
+# unit tests for CLASVAE as sanity check
+if __name__ == "__main__":
+    # Example usage
+    config = {
+        'latent_dim': 16,
+        'hidden_dim': 256
+    }
+    
+    vae = CLASVAE(config)
+    
+    # Test different batch sizes
+    batch_sizes = [1, 8, 32, 64]
+    
+    for batch_size in batch_sizes:
+        print(f"\nTesting batch size: {batch_size}")
+        
+        # Create batched dummy observations
+        obs_dict = {
+            'robot0_joint_pos': np.random.rand(batch_size, 7),
+            'robot0_joint_pos_cos': np.random.rand(batch_size, 7),
+            'robot0_joint_pos_sin': np.random.rand(batch_size, 7),
+            'robot0_joint_vel': np.random.rand(batch_size, 7),
+            'robot0_eef_pos': np.random.rand(batch_size, 3),
+            'robot0_eef_quat': np.random.rand(batch_size, 4),
+            'robot0_eef_quat_site': np.random.rand(batch_size, 4),
+            'robot0_gripper_qpos': np.random.rand(batch_size, 2),
+            'robot0_gripper_qvel': np.random.rand(batch_size, 2),
+            
+            'robot1_joint_pos': np.random.rand(batch_size, 7),
+            'robot1_joint_pos_cos': np.random.rand(batch_size, 7),
+            'robot1_joint_pos_sin': np.random.rand(batch_size, 7),
+            'robot1_joint_vel': np.random.rand(batch_size, 7),
+            'robot1_eef_pos': np.random.rand(batch_size, 3),
+            'robot1_eef_quat': np.random.rand(batch_size, 4),
+            'robot1_eef_quat_site': np.random.rand(batch_size, 4),
+            'robot1_gripper_qpos': np.random.rand(batch_size, 2),
+            'robot1_gripper_qvel': np.random.rand(batch_size, 2),
+            
+            'pot_pos': np.random.rand(batch_size, 3),
+            'pot_quat': np.random.rand(batch_size, 4),
+            'handle0_xpos': np.random.rand(batch_size, 3),
+            'handle1_xpos': np.random.rand(batch_size, 3),
+            'gripper0_to_handle0': np.random.rand(batch_size, 3),
+            'gripper1_to_handle1': np.random.rand(batch_size, 3)
+        }
+        
+        # Create batched actions
+        actions = torch.tanh(torch.randn((batch_size, 14)))  # 14 total action dimensions
+        
+        try:
+            # Test training step
+            losses = vae.train_step(obs_dict, actions)
+            print(f"  Training step successful - Losses: {losses}")
+            
+            # Test action decoding
+            latent_action = torch.randn((batch_size, config['latent_dim']))
+            robot0_action, robot1_action = vae.decode_actions(obs_dict, latent_action)
+            
+            # Verify shapes
+            expected_shape = (batch_size, 7)  # Assuming 7 DOF per robot
+            assert robot0_action.shape == expected_shape, f"Robot0 shape mismatch: {robot0_action.shape} != {expected_shape}"
+            assert robot1_action.shape == expected_shape, f"Robot1 shape mismatch: {robot1_action.shape} != {expected_shape}"
+            
+            print(f"  Action decoding successful - Shapes: robot0={robot0_action.shape}, robot1={robot1_action.shape}")
+            
+            # Test observation parsing
+            robot0_obs, robot1_obs, shared_obs, full_obs = vae.parse_observation(obs_dict)
+            print(f"  Observation parsing successful - Full obs shape: {full_obs.shape}")
+            
+            # Test VAE loss computation (without optimizer step)
+            loss_dict = vae.vae_loss(obs_dict, actions)
+            print(f"  VAE loss computation successful - Losses: {[f'{k}: {v.item():.4f}' for k, v in loss_dict.items()]}")
+            
+        except Exception as e:
+            print(f"  ERROR with batch size {batch_size}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    print("\n" + "="*50)
+    print("ADDITIONAL TESTS")
+    print("="*50)
+    
+    # Test with different action dimensions
+    print("\nTesting action dimension consistency:")
+    batch_size = 16
+    obs_dict = {
+        'robot0_joint_pos': np.random.rand(batch_size, 7),
+        'robot0_joint_pos_cos': np.random.rand(batch_size, 7),
+        'robot0_joint_pos_sin': np.random.rand(batch_size, 7),
+        'robot0_joint_vel': np.random.rand(batch_size, 7),
+        'robot0_eef_pos': np.random.rand(batch_size, 3),
+        'robot0_eef_quat': np.random.rand(batch_size, 4),
+        'robot0_eef_quat_site': np.random.rand(batch_size, 4),
+        'robot0_gripper_qpos': np.random.rand(batch_size, 2),
+        'robot0_gripper_qvel': np.random.rand(batch_size, 2),
+        
+        'robot1_joint_pos': np.random.rand(batch_size, 7),
+        'robot1_joint_pos_cos': np.random.rand(batch_size, 7),
+        'robot1_joint_pos_sin': np.random.rand(batch_size, 7),
+        'robot1_joint_vel': np.random.rand(batch_size, 7),
+        'robot1_eef_pos': np.random.rand(batch_size, 3),
+        'robot1_eef_quat': np.random.rand(batch_size, 4),
+        'robot1_eef_quat_site': np.random.rand(batch_size, 4),
+        'robot1_gripper_qpos': np.random.rand(batch_size, 2),
+        'robot1_gripper_qvel': np.random.rand(batch_size, 2),
+        
+        'pot_pos': np.random.rand(batch_size, 3),
+        'pot_quat': np.random.rand(batch_size, 4),
+        'handle0_xpos': np.random.rand(batch_size, 3),
+        'handle1_xpos': np.random.rand(batch_size, 3),
+        'gripper0_to_handle0': np.random.rand(batch_size, 3),
+        'gripper1_to_handle1': np.random.rand(batch_size, 3)
+    }
+    
+    # Test encoding and decoding consistency
+    print("\nTesting encoding-decoding consistency:")
+    original_actions = torch.tanh(torch.randn((batch_size, 14)))
+    
+    # Encode actions to latent space
+    robot0_obs, robot1_obs, shared_obs, full_obs = vae.parse_observation(obs_dict)
+    full_obs = full_obs.to(vae.device)
+    original_actions = original_actions.to(vae.device)
+    
+    with torch.no_grad():
+        # Encode
+        mu_enc, logvar_enc = vae.encoder(full_obs, original_actions)
+        latent_action = torch.tanh(vae.reparameterize(mu_enc, logvar_enc))
+        
+        # Decode
+        decoded_robot0, decoded_robot1 = vae.decode_actions(obs_dict, latent_action)
+        decoded_actions = torch.cat([decoded_robot0, decoded_robot1], dim=-1)
+        
+        # Compute reconstruction error
+        recon_error = torch.mean(torch.abs(original_actions - decoded_actions))
+        print(f"  Reconstruction error: {recon_error.item():.6f}")
+        
+        if recon_error.item() < 2.0:  # Reasonable threshold for random initialization
+            print("  ✓ Reconstruction error within acceptable range")
+        else:
+            print("  ⚠ High reconstruction error (expected for untrained model)")
+    
+    print("\nAll batch operation tests completed!")
