@@ -1,19 +1,18 @@
 agent_class: BasicMARLAgent
 
-agent_0:
+actor_0:
   actor_observations: [
     [robot0_proprio-state, 43] #(43,)
   ]
-  critic_observations: [
-    [robot0_proprio-state, 43], #(43,)
-    [object-state, 41] #(41,)
-  ]
 
-agent_1:
+actor_1:
   actor_observations: [
     [robot1_proprio-state, 43] #(43,)
   ]
+
+critic:
   critic_observations: [
+    [robot0_proprio-state, 43], #(43,)
     [robot1_proprio-state, 43], #(43,)
     [object-state, 41] #(41,)
   ]

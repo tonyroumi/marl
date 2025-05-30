@@ -1,9 +1,9 @@
 defaults:
   - _self_
   - environment: TwoArmTransport
-  - policy: TwoSActorCritic
-  - agent: MultiAgent
-  - algorithm: PPO
+  - policy: TwoActorsSharedCritic
+  - agent: SharedCritic
+  - algorithm: MAPPO
 
 seed: 0
 
