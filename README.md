@@ -1,7 +1,19 @@
-This repo is for the final project from UCSD's CSE 190 - Intro to Deep Reinforcement Learning.
+How to run : 
+python -m marl.train 
 
-Our project attempts to explore multi-agent interaction for two robotic arms, where the task is to lift an object of varying sizes that is too heavy for one to lift alone.
+if hp something is not installed, install it via pip (pip install x)
 
-We use the MuJoCo environment to train the arm.
+adjust the iteration number at basic__marl_agent.py 
+change : 
+    def learn(self, total_iterations: int = 10) -> None:
+        """
+        Main training loop for the PPO agent.
 
-We implement the algorithm presented by Aljalbout et al: https://proceedings.mlr.press/v211/aljalbout23a/aljalbout23a.pdf, extending it by using <insert methodology here> to allow the use of a camera instead of the perfect environment representation by the simulator.
+        Args:
+            total_iterations (int): Number of learning iterations to perform.
+        """
+        obs, info = self.env.reset()
+        actor_obs, critic_obs = self.process_observations(obs)
+        self.train_mode() 
+        
+ this from 10 to whatever number you want

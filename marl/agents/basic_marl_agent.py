@@ -41,7 +41,7 @@ class BasicMARLAgent(BaseMARLAgent):
         Returns:
             The final observations after the rollout (actor and critic).
         """
-        for _ in range(num_transitions):
+        for step_idx in range(num_transitions):
             actions = self.algorithm.act(actor_obs=actor_obs, critic_obs=critic_obs)
             actions = self.process_actions(actions)
 
@@ -54,7 +54,7 @@ class BasicMARLAgent(BaseMARLAgent):
 
         return actor_obs, critic_obs
 
-    def learn(self, total_iterations: int = 1000) -> None:
+    def learn(self, total_iterations: int = 10) -> None:
         """
         Main training loop for the PPO agent.
 
@@ -86,5 +86,9 @@ class BasicMARLAgent(BaseMARLAgent):
 
             loss_dict = self.algorithm.update()
             learn_time = time.time() - learn_start
+
+            print(iteration)
+            print(loss_dict)
+            print(learn_time)
 
             self.current_learning_iteration = iteration
