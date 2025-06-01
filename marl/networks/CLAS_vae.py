@@ -417,6 +417,8 @@ if __name__ == "__main__":
             losses = vae.train_step(obs_dict, actions)
             print(f"  Training step successful - Losses: {losses}")
             
+            
+            
             # Test action decoding
             latent_action = torch.randn((batch_size, config['latent_dim']))
             robot0_action, robot1_action = vae.decode_actions(obs_dict, latent_action)

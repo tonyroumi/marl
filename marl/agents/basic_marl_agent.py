@@ -63,6 +63,7 @@ class BasicMARLAgent(BaseMARLAgent):
         """
         obs, info = self.env.reset()
         actor_obs, critic_obs = self.process_observations(obs)
+        print(actor_obs, critic_obs)
         self.train_mode()
 
         ep_infos = []
