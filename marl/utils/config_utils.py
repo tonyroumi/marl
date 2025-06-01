@@ -6,18 +6,19 @@ algorithms, and agents) from configuration files.
 """
 
 from typing import Dict, Any, Tuple
-
-import torch
 from omegaconf import DictConfig, OmegaConf
+import logging
 
 from marl.agents.base_marl import BaseMARLAgent
 from marl.agents.basic_marl_agent import BasicMARLAgent
+from marl.agents.CLAS_agent import CLASVAEAgent
 from marl.envs.make_env.make_env import make_env
 from marl.policies import MultiAgentPolicyBuilder, BasePolicy
 from marl.utils.utils import resolve_controller
 from marl.algorithms.ppo import PPO
-from marl.algorithms.mappo import MAPPO
+# from marl.algorithms.mappo import MAPPO
 from marl.algorithms.base import BaseAlgorithm
+
 # =============================================================================
 # Environment Builder
 # =============================================================================
@@ -89,7 +90,7 @@ def instantiate_policy(config: DictConfig):
 # Algorithm Builder
 # =============================================================================
 
-def instantiate_algorithm(algorithm_config: DictConfig, policy: MultiAgentPolicyBuilder):
+def instantiate_algorithm(algorithm_config: Dict[str, Any], policy: MultiAgentPolicyBuilder):
     """
     Build algorithm from configuration.
     
@@ -100,12 +101,19 @@ def instantiate_algorithm(algorithm_config: DictConfig, policy: MultiAgentPolicy
     Returns:
         Constructed algorithm instance (currently PPO)
     """
+    algorithm_kwargs = algorithm_config.get("kwargs", {})
     if algorithm_config.get("name") == "PPO":
         agent_hyperparams = parse_agent_configs(algorithm_config)
-        normalize_advantage_per_mini_batch = algorithm_config["global"].get("normalize_advantage_per_mini_batch", False)
+        normalize_advantage_per_mini_batch = algorithm_kwargs.get("normalize_advantage_per_mini_batch", False)
+
         return PPO(policy, agent_hyperparams, normalize_advantage_per_mini_batch)
     elif algorithm_config.get("name") == "MAPPO":
-        return MAPPO(policy, algorithm_config)
+        agent_hyperparams = parse_agent_configs(algorithm_config)
+        normalize_advantage_per_mini_batch = algorithm_kwargs.get("normalize_advantage_per_mini_batch", False)
+        actor_critic_mapping = algorithm_config.get("agent_mapping", None)
+        return MAPPO(policy, agent_hyperparams, normalize_advantage_per_mini_batch, actor_critic_mapping)
+    else:
+        raise ValueError(f"Algorithm {algorithm_config.get('name')} not supported")
 
 
 def parse_agent_configs(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
@@ -152,8 +160,10 @@ def parse_agent_configs(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         agent_config = {}
         if agent_name in agent_specific: 
             agent_config["learning_rate"] = agent_specific[agent_name]["learning_rate"]
+            agent_config["max_grad_norm"] = agent_specific[agent_name]["max_grad_norm"]
         else:
             agent_config["learning_rate"] = global_params["learning_rate"]
+            agent_config["max_grad_norm"] = global_params["max_grad_norm"]
         agent_configs['critics'][agent_name] = agent_config
     
     return agent_configs
@@ -212,6 +222,20 @@ def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPoli
     """
     Build agent from configuration.
     """
+    logger = logging.getLogger("CLASVAE")
+    logger.setLevel(logging.INFO)
+
+    # send logs to stdout
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+
+    # choose a format
+    fmt = "[%(asctime)s] %(name)s %(levelname)s: %(message)s"
+    handler.setFormatter(logging.Formatter(fmt))
+
+    # attach handler
+    logger.addHandler(handler)
+    
     actor_obs_keys, critic_obs_keys = _extract_observation_keys(agent_config)
     
     # Extract agent behavioral flags
@@ -222,17 +246,32 @@ def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPoli
         "actor_obs_keys": actor_obs_keys,
         "critic_obs_keys": critic_obs_keys
     }
-    num_transitions_per_env = agent_config["num_transitions_per_env"]
+    num_transitions_per_env = agent_config.get("num_transitions_per_env", 200)
     if agent_config.get("agent_class") == "BasicMARLAgent":
         return BasicMARLAgent(
-        env=env,
-        policy=policy,
-        algorithm=algorithm,
-        observation_config=observation_config,
-        num_transitions_per_env=num_transitions_per_env,
-        normalize_observations=normalize_observations,
-        device = policy.device
-    )
+            env=env,
+            policy=policy,
+            algorithm=algorithm,
+            observation_config=observation_config,
+            num_transitions_per_env=num_transitions_per_env,
+            normalize_observations=normalize_observations,
+            device = policy.device
+        )
+    elif agent_config.get("agent_class") == "CLASVAEAgent":
+        return CLASVAEAgent(
+            env=env,
+            policy=policy,
+            observation_config=observation_config,
+            num_transitions_per_env=num_transitions_per_env,
+            normalize_observations=normalize_observations,
+            vae_config = {
+                'latent_dim': 16,
+                'hidden_dim': 256
+            },
+            algorithm=algorithm,
+            logger=logger,
+            device = policy.device
+        )
     else:
         raise ValueError(f"Agent class {agent_config.get('agent_class')} not supported")
 
@@ -269,4 +308,3 @@ def instantiate_all(config: DictConfig) -> Tuple[Any, BasePolicy, BaseAlgorithm,
         agent_config=config["agent"]
     )
     return env, policy, algorithm, agent
-    

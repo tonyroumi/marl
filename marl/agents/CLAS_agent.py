@@ -265,7 +265,7 @@ class CLASVAEAgent(BaseMARLAgent):
             self.logger.info(f"Prefilling VAE buffer with {prefill_size} transitions")
 
         
-        obs_dict = self.reset_and_weld()  # Reset and weld the robots to the handle
+        obs_dict = self.env.reset()  # Reset and weld the robots to the handle
         steps_in_ep = 0
 
         pbar = tqdm(total=prefill_size, desc="Prefill", unit="step")
