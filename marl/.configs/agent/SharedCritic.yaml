@@ -14,7 +14,7 @@ critic:
   critic_observations: [
     [robot0_proprio-state, 43], #(43,)
     [robot1_proprio-state, 43], #(43,)
-    [object-state, 41] #(41,)
+    [object-state, 19] #(19,)
   ]
 
 kwargs: 

@@ -73,3 +73,12 @@ class EmpiricalNormalization(nn.Module):
     @torch.jit.unused
     def inverse(self, y):
         return y * (self._std + self.eps) + self._mean
+
+    def save(self, path: str):
+        """Save the normalizer state to a file"""
+        torch.save(self.state_dict(), path)
+
+    def load(self, path: str):
+        """Load the normalizer state from a file"""
+        self.load_state_dict(torch.load(path))
+

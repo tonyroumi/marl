@@ -16,6 +16,6 @@ components:
   critic:
     network_type: "mlp"
     network_class: "critic"
-    critic_obs_dim: 127
+    critic_obs_dim: 105
     critic_out_dim: 1
     critic_hidden_dims: [256,256]
