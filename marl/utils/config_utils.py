@@ -6,16 +6,17 @@ algorithms, and agents) from configuration files.
 """
 
 from typing import Dict, Any, Tuple
-
 from omegaconf import DictConfig, OmegaConf
+import logging
 
 from marl.agents.base_marl import BaseMARLAgent
 from marl.agents.basic_marl_agent import BasicMARLAgent
+from marl.agents.CLAS_agent import CLASVAEAgent
 from marl.envs.make_env.make_env import make_env
 from marl.policies import MultiAgentPolicyBuilder, BasePolicy
 from marl.utils.utils import resolve_controller
 from marl.algorithms.ppo import PPO
-from marl.algorithms.mappo import MAPPO
+# from marl.algorithms.mappo import MAPPO
 from marl.algorithms.base import BaseAlgorithm
 
 # =============================================================================
@@ -223,6 +224,20 @@ def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPoli
     """
     Build agent from configuration.
     """
+    logger = logging.getLogger("CLASVAE")
+    logger.setLevel(logging.INFO)
+
+    # send logs to stdout
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+
+    # choose a format
+    fmt = "[%(asctime)s] %(name)s %(levelname)s: %(message)s"
+    handler.setFormatter(logging.Formatter(fmt))
+
+    # attach handler
+    logger.addHandler(handler)
+    
     actor_obs_keys, critic_obs_keys = _extract_observation_keys(agent_config)
     
     # Extract agent behavioral flags
@@ -236,14 +251,29 @@ def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPoli
     num_transitions_per_env = agent_config.get("num_transitions_per_env", 200)
     if agent_config.get("agent_class") == "BasicMARLAgent":
         return BasicMARLAgent(
-        env=env,
-        policy=policy,
-        algorithm=algorithm,
-        observation_config=observation_config,
-        num_transitions_per_env=num_transitions_per_env,
-        normalize_observations=normalize_observations,
-        device = policy.device
-    )
+            env=env,
+            policy=policy,
+            algorithm=algorithm,
+            observation_config=observation_config,
+            num_transitions_per_env=num_transitions_per_env,
+            normalize_observations=normalize_observations,
+            device = policy.device
+        )
+    elif agent_config.get("agent_class") == "CLASVAEAgent":
+        return CLASVAEAgent(
+            env=env,
+            policy=policy,
+            observation_config=observation_config,
+            num_transitions_per_env=num_transitions_per_env,
+            normalize_observations=normalize_observations,
+            vae_config = {
+                'latent_dim': 16,
+                'hidden_dim': 256
+            },
+            algorithm=algorithm,
+            logger=logger,
+            device = policy.device
+        )
     else:
         raise ValueError(f"Agent class {agent_config.get('agent_class')} not supported")
 
@@ -280,4 +310,3 @@ def instantiate_all(config: DictConfig) -> Tuple[Any, BasePolicy, BaseAlgorithm,
         agent_config=config["agent"]
     )
     return env, policy, algorithm, agent
-    
