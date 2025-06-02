@@ -188,10 +188,19 @@ class BaseMARLAgent(ABC):
                 norm.eval()
 
     def save(self, path: str):
-        pass
+        self.policy.save(path)
+        for agent in self.actors:
+            self.actor_obs_normalizer[agent].save(path + f"/{agent}_actor_obs_normalizer.pt")
+        for critic in self.critics:
+            self.critic_obs_normalizer[critic].save(path + f"/{critic}_critic_obs_normalizer.pt")
+
 
     def load(self, path: str):
-        pass
+        self.policy.load(path)
+        for agent in self.actors:
+            self.actor_obs_normalizer[agent].load(path + f"/{agent}_actor_obs_normalizer.pt")
+        for critic in self.critics:
+            self.critic_obs_normalizer[critic].load(path + f"/{critic}_critic_obs_normalizer.pt")
 
     @abstractmethod
     def learn(self, total_iterations: int = 1000) -> None:

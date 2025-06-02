@@ -1,17 +1,13 @@
 defaults:
   - _self_
-  - environment: TwoArmTransport
+  - environment: TwoArmLift
   - policy: TwoActorsSharedCritic
   - agent: SharedCritic
   - algorithm: MAPPO
 
-seed: 0
-
-experiment:
-  name: "single_agent_ppo"
-  seed: 42
-  total_timesteps: 1_000_000
-
+seed: 42
+total_timesteps: 1_000_000
+exp_name: "two_actors_shared_critic"
 
 
 #Custom Hydra run directory
