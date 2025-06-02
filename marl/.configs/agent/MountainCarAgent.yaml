@@ -8,3 +8,4 @@ agent_0:
 
 kwargs: 
   normalize_observations: false
+  save_interval: 1000

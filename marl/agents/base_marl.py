@@ -42,6 +42,7 @@ class BaseMARLAgent(ABC):
         observation_config: Dict[str, List[str]],
         num_transitions_per_env: int,
         normalize_observations: bool,
+        save_interval: int = 500,
         logger: Optional[Any] = None,
         device: Optional[torch.device] = None,
     ):
@@ -50,6 +51,8 @@ class BaseMARLAgent(ABC):
         self.algorithm = algorithm
         self.logger = logger
         self.device = device
+        
+        self.save_interval = save_interval
 
         self.observation_config = observation_config
         self.num_transitions_per_env = num_transitions_per_env
@@ -57,6 +60,7 @@ class BaseMARLAgent(ABC):
 
         self.actor_obs_keys = observation_config['actor_obs_keys']
         self.critic_obs_keys = observation_config.get('critic_obs_keys') or self.actor_obs_keys
+
 
         self._post_init()
 

@@ -8,6 +8,8 @@ algorithms, and agents) from configuration files.
 from typing import Dict, Any, Tuple
 
 from omegaconf import DictConfig, OmegaConf
+from hydra.core.hydra_config import HydraConfig
+
 
 from marl.agents.base_marl import BaseMARLAgent
 from marl.agents.basic_marl_agent import BasicMARLAgent
@@ -17,6 +19,11 @@ from marl.utils.utils import resolve_controller
 from marl.algorithms.ppo import PPO
 from marl.algorithms.mappo import MAPPO
 from marl.algorithms.base import BaseAlgorithm
+from marl.logger.logger import Logger
+
+def get_log_dir():
+    """Get the log directory from Hydra config."""
+    return HydraConfig.get().run.dir
 
 # =============================================================================
 # Environment Builder
@@ -35,7 +42,7 @@ def instantiate_env(config: DictConfig):
     Returns:
         Constructed environment instance
     """
-    env_config = config["environment"]
+    env_config = config.get("environment", config)
     env_kwargs = env_config.get("env_kwargs", {})
     
     # Resolve controller configuration if present
@@ -219,10 +226,11 @@ def _extract_agent_kwargs(config: DictConfig) -> bool:
 # Agent Builder 
 # =============================================================================
 
-def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPolicyBuilder, algorithm: BaseAlgorithm) -> BaseMARLAgent:
+def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPolicyBuilder, algorithm: BaseAlgorithm, logger: Logger) -> BaseMARLAgent:
     """
     Build agent from configuration.
     """
+    agent_kwargs = agent_config.get("kwargs", {})
     actor_obs_keys, critic_obs_keys = _extract_observation_keys(agent_config)
     
     # Extract agent behavioral flags
@@ -233,7 +241,9 @@ def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPoli
         "actor_obs_keys": actor_obs_keys,
         "critic_obs_keys": critic_obs_keys
     }
-    num_transitions_per_env = agent_config.get("num_transitions_per_env", 200)
+    num_transitions_per_env = agent_kwargs.get("num_transitions_per_env", 200)
+    save_interval = agent_kwargs.get("save_interval", 500)
+    
     if agent_config.get("agent_class") == "BasicMARLAgent":
         return BasicMARLAgent(
         env=env,
@@ -242,7 +252,9 @@ def instantiate_agent(agent_config: DictConfig, env: Any, policy: MultiAgentPoli
         observation_config=observation_config,
         num_transitions_per_env=num_transitions_per_env,
         normalize_observations=normalize_observations,
-        device = policy.device
+        save_interval = save_interval,
+        device = policy.device,
+        logger = logger,
     )
     else:
         raise ValueError(f"Agent class {agent_config.get('agent_class')} not supported")
@@ -269,15 +281,20 @@ def instantiate_all(config: DictConfig) -> Tuple[Any, BasePolicy, BaseAlgorithm,
     Returns:
         Tuple of (environment, agent) ready for training
     """
+    
     config = OmegaConf.to_container(config, resolve=True)
+    logger = Logger(log_dir=get_log_dir())
+
     env = instantiate_env(config)
     policy = instantiate_policy(config["policy"])
+    
     algorithm = instantiate_algorithm(config["algorithm"], policy)
     agent = instantiate_agent(
         env=env,
         policy=policy,
         algorithm=algorithm,
-        agent_config=config["agent"]
+        agent_config=config["agent"],
+        logger=logger
     )
     return env, policy, algorithm, agent
     

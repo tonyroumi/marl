@@ -3,6 +3,7 @@ from typing import Dict, Tuple
 import torch
 import time
 from collections import deque
+import numpy as np
 
 from marl.agents.base_marl import BaseMARLAgent
 
@@ -23,13 +24,14 @@ class BasicMARLAgent(BaseMARLAgent):
     - Updating the PPO policy using stored rollouts.
     - Maintaining episode statistics such as reward and length buffers.
     """
+    
 
     def _collect_rollouts(
         self, 
         actor_obs: Dict, 
         critic_obs: Dict, 
         num_transitions: int
-        ) -> Tuple[Dict, Dict]:
+        ) -> Tuple[Dict, Dict, Dict]:
         """
         Collects rollout data from the environment for a specified number of transitions.
 
@@ -41,6 +43,7 @@ class BasicMARLAgent(BaseMARLAgent):
         Returns:
             The final observations after the rollout (actor and critic).
         """
+        eps_ret = []
         for _ in range(num_transitions):
             actions = self.algorithm.act(actor_obs=actor_obs, critic_obs=critic_obs)
             actions = self.process_actions(actions)
@@ -48,9 +51,13 @@ class BasicMARLAgent(BaseMARLAgent):
             obs, rewards, dones, truncated, infos = self.env.step(actions)
             actor_obs, critic_obs = self.process_observations(obs)
             actor_obs, critic_obs = self._normalize_observations(actor_obs, critic_obs)
-
+            
+            if np.any(dones | truncated): #Log episode return when episode is complete
+                eps_ret.append(infos.get("eps_ret"))
            
             self.algorithm.process_env_step(rewards, dones)
+
+        self.logger.store(tag="episode", eps_ret=eps_ret, log_summary=True)
 
         return actor_obs, critic_obs
 
@@ -61,30 +68,34 @@ class BasicMARLAgent(BaseMARLAgent):
         Args:
             total_iterations (int): Number of learning iterations to perform.
         """
-        obs, info = self.env.reset()
-        actor_obs, critic_obs = self.process_observations(obs)
         self.train_mode()
 
-        ep_infos = []
-        rewbuffer = deque(maxlen=100)
-        lenbuffer = deque(maxlen=100)
-
-        curr_reward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
-        curr_ep_len = torch.zeros(self.env.num_envs, dtype=torch.long, device=self.device)
-
         for iteration in range(total_iterations):
-            start_time = time.time()
+            iteration_start_time = time.time()
 
+            obs, _ = self.env.reset()
+            actor_obs, critic_obs = self.process_observations(obs)
             with torch.inference_mode():
                 actor_obs, critic_obs = self._collect_rollouts(actor_obs, critic_obs, self.num_transitions_per_env)
-                collection_time = time.time() - start_time
-              
+                collection_time = time.time() - iteration_start_time
                 self.algorithm.compute_returns(last_critic_obs=critic_obs)
 
-                learn_start = time.time()
-
-
+            learn_start_time = time.time()
             loss_dict = self.algorithm.update()
-            learn_time = time.time() - learn_start
+            learn_time = time.time() - learn_start_time
 
-            self.current_learning_iteration = iteration
+            locs = {
+                "collection_time": collection_time,
+                "learn_time": learn_time,
+                **loss_dict
+            }
+
+            self.logger.store(tag='training', log_summary=False, **locs)
+
+            if iteration % self.save_interval == 0:
+                self.logger.log(step=iteration)
+                self.logger.reset()
+                self.save(str(self.logger.model_path / f"{iteration}"))
+        
+            self.logger.log_iteration(iteration_num=iteration, timesteps_this_iter=self.num_transitions_per_env)
+            

@@ -39,7 +39,7 @@ class RecordVideoWrapper(gym.Wrapper):
         print(f'Recording videos with {self.camera_names} cameras')
 
         # Where to write the snippet files
-        self.video_folder = os.path.abspath(video_folder)
+        self.video_folder = os.path.abspath(video_folder + '/videos')
         os.makedirs(self.video_folder, exist_ok=True)
 
         self.step_trigger = step_trigger

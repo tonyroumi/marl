@@ -16,6 +16,7 @@ def train(config: DictConfig):
     set_seed(config.seed)
     env, _, _, agent = instantiate_all(config)
 
+
     env.reset()
 
     try:
@@ -23,11 +24,11 @@ def train(config: DictConfig):
 
     except KeyboardInterrupt:
         print("Keyboard interrupt")
-        agent.save(os.path.join(save_dir, "policy"))
+        agent.save(os.path.join(save_dir, "policy", "final"))
 
     finally:
         env.close()
-        agent.save(os.path.join(save_dir, "policy"))
+        agent.save(os.path.join(save_dir, "policy", "final"))
 
 if __name__ == "__main__":
     train()
