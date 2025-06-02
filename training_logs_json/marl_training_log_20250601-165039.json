@@ -1,0 +1,172 @@
+[
+    {
+        "iteration": 1,
+        "collection_time_seconds": 5.169,
+        "learn_time_seconds": 0.1431,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0020591660868376493,
+                "surrogate_loss": -3.814697180359872e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.024138322100043297,
+                "surrogate_loss": -3.33786012163273e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 2,
+        "collection_time_seconds": 5.1451,
+        "learn_time_seconds": 0.0066,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0010899732587859035,
+                "surrogate_loss": -5.364417798858767e-09,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.005658481735736132,
+                "surrogate_loss": 3.814697180359872e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 3,
+        "collection_time_seconds": 5.1838,
+        "learn_time_seconds": 0.0062,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0009721238748170435,
+                "surrogate_loss": 1.668930060816365e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.002097814343869686,
+                "surrogate_loss": 1.5497207073167374e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 4,
+        "collection_time_seconds": 5.1184,
+        "learn_time_seconds": 0.0062,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0007275096722878516,
+                "surrogate_loss": -4.172325152040912e-09,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0020629181526601315,
+                "surrogate_loss": -3.814697180359872e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 5,
+        "collection_time_seconds": 5.2944,
+        "learn_time_seconds": 0.0067,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0010514797177165747,
+                "surrogate_loss": 2.0265579436795633e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0014378706691786647,
+                "surrogate_loss": 1.5497207073167374e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 6,
+        "collection_time_seconds": 5.4528,
+        "learn_time_seconds": 0.0063,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0007436606101691723,
+                "surrogate_loss": 1.907348590179936e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0005332416039891541,
+                "surrogate_loss": 2.8610228852699038e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 7,
+        "collection_time_seconds": 5.4397,
+        "learn_time_seconds": 0.0063,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0009158430038951337,
+                "surrogate_loss": 1.668930060816365e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0008160948054865003,
+                "surrogate_loss": -4.76837147544984e-09,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 8,
+        "collection_time_seconds": 5.3459,
+        "learn_time_seconds": 0.0065,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0010146016720682383,
+                "surrogate_loss": -1.192092824453539e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.000935278192628175,
+                "surrogate_loss": 1.0728835597717534e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 9,
+        "collection_time_seconds": 5.5014,
+        "learn_time_seconds": 0.0061,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0009328354499302804,
+                "surrogate_loss": 1.4305114426349519e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0008571616490371525,
+                "surrogate_loss": -7.1525572131747595e-09,
+                "entropy": 9.93256950378418
+            }
+        }
+    },
+    {
+        "iteration": 10,
+        "collection_time_seconds": 5.6207,
+        "learn_time_seconds": 0.0068,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0009448464843444526,
+                "surrogate_loss": -1.4305114426349519e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0007419450557790697,
+                "surrogate_loss": -1.668930060816365e-08,
+                "entropy": 9.93256950378418
+            }
+        }
+    }
+]

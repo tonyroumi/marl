@@ -1,6 +1,6 @@
 name: PPO
-actors: ["agent_0", "agent_1"]
-critics: ["agent_0", "agent_1"]
+actors: ["agent_0"]
+critics: ["agent_0"]
 ##IMPORTANT MAKE SURE CORRESPONDING ACTORS AND CRITICS ARE AT THE SAME INDEX
 #For single actor-critic networks, do the same.
 
@@ -18,8 +18,6 @@ global:
   schedule: "fixed"
   desired_kl: 0.01
   normalize_advantage_per_mini_batch: false
-  num_transitions_per_env: 64
-  num_steps_per_env: 1000
   total_timesteps: 1_000_000
 
 # agent_specific_hyperparams: 

@@ -32,6 +32,7 @@ class PPO(BaseAlgorithm):
       policy,
       agent_hyperparams: Dict[str, Dict[str, Any]],
       normalize_advantage_per_mini_batch: bool = False,
+      mappo: bool = False,
     ):
     self.policy = policy
     self.optimizers = {}
@@ -41,8 +42,9 @@ class PPO(BaseAlgorithm):
     self.actors = [actor_id for actor_id in agent_hyperparams['actors']]
     self.critics = [critic_id for critic_id in agent_hyperparams['critics']]
 
-    if len(self.actors) != len(self.critics):
-      raise ValueError("Number of actors and critics must be the same for PPO")
+    if not mappo:
+       if len(self.actors) != len(self.critics):
+        raise ValueError("Number of actors and critics must be the same for PPO")
 
     self.normalize_advantage_per_mini_batch = normalize_advantage_per_mini_batch
 
@@ -61,14 +63,17 @@ class PPO(BaseAlgorithm):
     self.entropy_coef = {agent_id: actor_hyperparams[agent_id]["entropy_coef"] for agent_id in self.actors}
     self.gamma = {agent_id: actor_hyperparams[agent_id]["gamma"] for agent_id in self.actors}
     self.lambda_ = {agent_id: actor_hyperparams[agent_id]["lambda_"] for agent_id in self.actors}
-    self.max_grad_norm = {agent_id: actor_hyperparams[agent_id]["max_grad_norm"] for agent_id in self.actors}
     self.use_clipped_value_loss = {agent_id: actor_hyperparams[agent_id]["use_clipped_value_loss"] for agent_id in self.actors}
     self.desired_kl = {agent_id: actor_hyperparams[agent_id]["desired_kl"] for agent_id in self.actors}
     self.schedule = {agent_id: actor_hyperparams[agent_id]["schedule"] for agent_id in self.actors}
     self.total_timesteps = {agent_id: actor_hyperparams[agent_id]["total_timesteps"] for agent_id in self.actors}
 
+    #Meaningful parameters for different actors and critics
     self.learning_rate = {agent_id: actor_hyperparams[agent_id]["learning_rate"] for agent_id in self.actors}
     self.learning_rate.update({agent_id: critic_hyperparams[agent_id]["learning_rate"] for agent_id in self.critics})
+
+    self.max_grad_norm = {agent_id: actor_hyperparams[agent_id]["max_grad_norm"] for agent_id in self.actors}
+    self.max_grad_norm.update({agent_id: critic_hyperparams[agent_id]["max_grad_norm"] for agent_id in self.critics})
 
   def _setup_optimizers(self):
     """ Setup optimizers for each agent """

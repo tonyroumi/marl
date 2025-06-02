@@ -186,14 +186,55 @@ class BaseMARLAgent(ABC):
                 norm.eval()
             for norm in self.critic_obs_normalizer.values():
                 norm.eval()
+    
+    def act_inference(self, obs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+        Acts for inference
+
+        args:
+            obs: Dictionary mapping observation names to numpy arrays. Same format during training. 
+
+        Returns:
+            numpy array of actions ready for the environment
+        """
+        self.eval_mode()
+        actor_obs, critic_obs = self.process_observations(obs)
+        actor_obs, critic_obs = self._normalize_observations(actor_obs, critic_obs)
+        actions = {}
+        for agent in self.actors:
+            actions[agent] = self.policy.act(actor_obs[agent], agent_id=agent)
+        actions = self.process_actions(actions)
+        return actions
 
     def save(self, path: str):
-        pass
+        """
+        Save the policy and normalizers
+
+        args:
+            path: Path to save the policy and normalizers
+        """
+        self.policy.save(path)
+        for agent in self.actors:
+            self.actor_obs_normalizer[agent].save(path + f"/{agent}_actor_obs_normalizer.pt")
+        for critic in self.critics:
+            self.critic_obs_normalizer[critic].save(path + f"/{critic}_critic_obs_normalizer.pt")
+
 
     def load(self, path: str):
-        pass
+        """
+        Load the policy and normalizers
+
+        args:
+            path: Path to load the policy and normalizers
+        """
+        self.policy.load(path)
+        for agent in self.actors:
+            self.actor_obs_normalizer[agent].load(path + f"/{agent}_actor_obs_normalizer.pt")
+        for critic in self.critics:
+            self.critic_obs_normalizer[critic].load(path + f"/{critic}_critic_obs_normalizer.pt")
 
     @abstractmethod
     def learn(self, total_iterations: int = 1000) -> None:
         """Abstract method that subclasses must implement to train the agent."""
         ...
+    

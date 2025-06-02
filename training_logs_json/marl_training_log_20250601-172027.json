@@ -1,0 +1,192 @@
+[
+    {
+        "iteration": 1,
+        "collection_time_seconds": 4.9354,
+        "learn_time_seconds": 0.4156,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0020513623021543026,
+                "surrogate_loss": -3.218650590497418e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.024136858060956,
+                "surrogate_loss": -2.145767119543507e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": "N/A (buffer empty)",
+        "average_episode_length": "N/A (buffer empty)"
+    },
+    {
+        "iteration": 2,
+        "collection_time_seconds": 4.8461,
+        "learn_time_seconds": 0.0049,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.001094679581001401,
+                "surrogate_loss": -5.960464122267695e-09,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0055280462838709354,
+                "surrogate_loss": -7.1525572131747595e-09,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 3,
+        "collection_time_seconds": 4.9428,
+        "learn_time_seconds": 0.006,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0008740295306779444,
+                "surrogate_loss": -2.8610228852699038e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.002078708028420806,
+                "surrogate_loss": -1.192092824453539e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 4,
+        "collection_time_seconds": 5.0322,
+        "learn_time_seconds": 0.006,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0007992621976882219,
+                "surrogate_loss": -2.384185648907078e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0015179574256762862,
+                "surrogate_loss": -3.814697180359872e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 5,
+        "collection_time_seconds": 5.0506,
+        "learn_time_seconds": 0.0061,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.001175780314952135,
+                "surrogate_loss": -2.8610228852699038e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0008636993006803095,
+                "surrogate_loss": -2.9802322387695312e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 6,
+        "collection_time_seconds": 5.0987,
+        "learn_time_seconds": 0.0059,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0009656136971898377,
+                "surrogate_loss": 1.192092824453539e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0011119364062324166,
+                "surrogate_loss": -4.17232506322307e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 7,
+        "collection_time_seconds": 5.2298,
+        "learn_time_seconds": 0.0059,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0009076002752408385,
+                "surrogate_loss": 8.344650304081824e-09,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0009034780669026077,
+                "surrogate_loss": -1.4305114426349519e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 8,
+        "collection_time_seconds": 4.9867,
+        "learn_time_seconds": 0.0059,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0016669990727677941,
+                "surrogate_loss": -2.2053718851111626e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0011831894516944885,
+                "surrogate_loss": -1.19209286886246e-09,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 9,
+        "collection_time_seconds": 5.0636,
+        "learn_time_seconds": 0.0062,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0023134860675781965,
+                "surrogate_loss": 6.914138594993346e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.00198111473582685,
+                "surrogate_loss": 6.437301180994837e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    },
+    {
+        "iteration": 10,
+        "collection_time_seconds": 5.278,
+        "learn_time_seconds": 0.0059,
+        "losses": {
+            "actor_0": {
+                "value_loss": 0.0015810959739610553,
+                "surrogate_loss": 7.86781271244763e-08,
+                "entropy": 9.93256950378418
+            },
+            "actor_1": {
+                "value_loss": 0.0010510352440178394,
+                "surrogate_loss": 3.6358834165639564e-08,
+                "entropy": 9.93256950378418
+            }
+        },
+        "average_episode_return": 0.0,
+        "average_episode_length": 300.0
+    }
+]

@@ -1,20 +1,21 @@
+output_dir: results/${hydra:runtime.choices.environment}/${hydra:runtime.choices.policy}/${exp_name}/${now:%Y.%m.%d}
 defaults:
   - _self_
-  - environment: TwoArmTransport
-  - policy: TwoSActorCritic
-  - agent: MultiAgent
-  - algorithm: PPO
+  - environment: TwoArmLift
+  - policy: TwoActorsSharedCritic
+  - agent: SharedCritic
+  - algorithm: MAPPO
 
 seed: 0
+total_timesteps: 1_000_000
+exp_name: "exp_name"
 
-experiment:
-  name: "single_agent_ppo"
-  seed: 42
-  total_timesteps: 1_000_000
-
-
+# Video recording configuration
+video: true                                   # Flag to record videos during training  
+video_interval: 1000                          # Interval between video recordings (in steps)  
+video_path: ${output_dir}/videos
 
 #Custom Hydra run directory
 hydra:
   run:
-    dir: results/${hydra:runtime.choices.environment}/${hydra:runtime.choices.policy}/${now:%Y.%m.%d}
+    dir: ${output_dir}
